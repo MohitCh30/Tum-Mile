@@ -1,0 +1,86 @@
+/* Tum Mile — Nocturne
+ *
+ * The app is a rain-streaked window. You can read someone through it,
+ * you cannot see them, and you cannot reach them yet.
+ *
+ * Rules that are not negotiable per-component:
+ *   - Amber lands on what a PERSON wrote. Never on chrome, never on a
+ *     button's fill. One warm thing per screen, and it is always them.
+ *   - The ground is grey-green, never neutral black.
+ *   - Supporting text is a different register, not a smaller size:
+ *     small, tracked, and much dimmer.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Eczar:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&family=Mukta:wght@300;400;500&display=swap");
+
+:root {
+  /* ── Ground ────────────────────────────────────────────────── */
+  --ground-top: #0c181a;
+  --ground-mid: #0a1416;
+  --ground-low: #081113;
+  --ground-deep: #050c0e;
+
+  /* ── Sodium. Reserved for what someone wrote. ──────────────── */
+  --lamp: #f0c892;        /* their words, brightest thing on screen */
+  --lamp-dim: #ebc08a;
+  --lamp-core: #d98f3c;   /* the light source itself: rules, seams */
+  --lamp-ink: #e4d3bc;    /* text on a warm-bordered control */
+
+  /* ── Cool text, brightest to quietest ──────────────────────── */
+  --paper: #e4ebe9;       /* prompt answers — the sharp bits */
+  --text: #ddE4e2;
+  --text-soft: #c3cfce;
+  --text-read: #a8b7b6;   /* long-form: the letter */
+  --text-name: #93a5a5;
+  --muted: #6e8384;
+  --muted-deep: #55686a;
+  --muted-deepest: #4e6163;
+
+  /* ── Surfaces ──────────────────────────────────────────────── */
+  --pane: rgba(12, 24, 26, 0.55);
+  --pane-them: rgba(30, 44, 46, 0.8);
+  --pane-you: rgba(16, 30, 33, 0.78);
+  --pane-act: rgba(26, 44, 48, 0.72);
+
+  /* ── Lines ─────────────────────────────────────────────────── */
+  --line: rgba(126, 142, 144, 0.26);
+  --line-soft: rgba(126, 142, 144, 0.17);
+  --line-warm: rgba(217, 143, 60, 0.3);
+
+  /* ── Type ──────────────────────────────────────────────────── */
+  --face-display: Eczar, Georgia, "Times New Roman", serif;
+  --face-body: "Tiro Devanagari Hindi", Georgia, serif;
+  --face-meta: Mukta, system-ui, -apple-system, sans-serif;
+
+  /* Contrast is the point: ~3.5x between display and meta. */
+  --size-display: 37px;
+  --size-display-sm: 28px;
+  --size-quote: 17px;
+  --size-answer: 15.5px;
+  --size-title: 15px;
+  --size-body: 14.5px;
+  --size-meta: 10.5px;
+
+  --lead-display: 1.34;
+  --lead-body: 1.8;
+  --lead-answer: 1.74;
+
+  --track-display: -0.014em;
+  --track-meta: 0.075em;
+  --track-label: 0.09em;
+
+  /* ── Weather ───────────────────────────────────────────────── */
+  --rain-far: 0.18;
+  --rain-near: 0.11;
+  --grain: 0.4;
+  --blur-pane: 3.5px;
+  --seam-x: 37%;
+
+  /* ── Space ─────────────────────────────────────────────────── */
+  --gutter: 26px;
+  --gap: 18px;
+  --gap-section: 28px;
+  --control-h: 48px; /* never below 44 */
+}
+
+/* Nothing here has a light theme. The product is a window at night. */
