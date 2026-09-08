@@ -1,31 +1,19 @@
+import type { FastifyReply, FastifyRequest } from "fastify";
+
+/**
+ * Applied to every response. The study rated these "secondary" because it
+ * assumed a mobile-only client; this is responsive web, so they are P0.
+ */
 export async function securityHeaders(
-  _request: { url: string },
-  reply: { header: (k: string, v: string) => void }
+  _request: FastifyRequest,
+  reply: FastifyReply
 ): Promise<void> {
   reply.header("X-Content-Type-Options", "nosniff");
   reply.header("X-Frame-Options", "DENY");
-  reply.header("X-XSS-Protection", "1; mode=block");
   reply.header("Referrer-Policy", "strict-origin-when-cross-origin");
-  reply.header(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=()"
-  );
-}
-
-/**
- * Content-Security-Policy — relaxed enough for Vite dev, strict for prod.
- */
-export function cspHeader(isDev: boolean): Record<string, string> {
-  if (isDev) {
-    // Dev: allow Vite HMR and scripts
-    return {
-      "Content-Security-Policy":
-        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:* ws://localhost:*; frame-ancestors 'none';",
-    };
-  }
-  // Production: no unsafe-eval/unsafe-inline
-  return {
-    "Content-Security-Policy":
-      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self';",
-  };
+  reply.header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+  reply.header("Cross-Origin-Opener-Policy", "same-origin");
+  reply.header("Cross-Origin-Resource-Policy", "same-origin");
+  // The API serves JSON only; nothing it returns should ever be rendered.
+  reply.header("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
 }

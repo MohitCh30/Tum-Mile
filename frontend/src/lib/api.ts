@@ -1,63 +1,61 @@
-export type SessionApi = { email: string; id: string };
-export type ProfileApi = {
-  id: string;
-  displayName: string | null;
-  bio: string;
-  birthDate: string | null;
-  gender: string;
-  seeking: string[];
-  preferences: { distanceRadiusKm: number; ageMin: number; ageMax: number };
-  privacy: { showDistance: boolean };
-};
+const BASE = "/api/v1";
 
-const API_BASE = "/api/v1";
+export class ApiError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
-export async function api<T>(path: string, opts?: RequestInit, body?: unknown): Promise<T> {
-  const url = `${API_BASE}${path}`;
-
-  let fetched: Response;
+/**
+ * The server answers `{ error: { code, message } }` and nothing else on
+ * failure — the message is already safe to show, so we never invent one.
+ */
+export async function api<T>(
+  path: string,
+  init?: { method?: string; body?: unknown }
+): Promise<T> {
+  let res: Response;
   try {
-    fetched = await fetch(url, {
-      method: opts?.method ?? "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...opts?.headers,
-      },
-      body: buildBody(body, opts),
+    res = await fetch(`${BASE}${path}`, {
+      method: init?.method ?? "GET",
+      headers: init?.body ? { "Content-Type": "application/json" } : undefined,
+      body: init?.body ? JSON.stringify(init.body) : undefined,
       credentials: "include",
     });
-  } catch (e: any) {
-    throw new Error("Network error");
+  } catch {
+    throw new ApiError("NETWORK", "Cannot reach the server.", 0);
   }
 
-  // 204 => empty response, callers expect no body
-  if (fetched.status === 204) return undefined as T;
+  if (res.status === 204) return undefined as T;
 
-  let data: any = null;
-  const text = await fetched.text().catch(() => "");
-  if (text) {
-    try { data = JSON.parse(text); } catch { data = { error: text }; }
-  }
+  const text = await res.text();
+  const data = text ? (JSON.parse(text) as unknown) : null;
 
-  // API returns { error: { code, message } }
-  if (!fetched.ok) {
-    const detail = data?.error?.code ?? String(fetched.status);
-    const msg = data?.error?.message ?? detail;
-    const err = new Error(msg);
-    (err as { code: string }).code = detail;
-    (err as { status: number }).status = fetched.status;
-    throw err;
+  if (!res.ok) {
+    const err = (data as { error?: { code?: string; message?: string } })?.error;
+    throw new ApiError(err?.code ?? "UNKNOWN", err?.message ?? "Something went wrong.", res.status);
   }
 
   return data as T;
 }
 
-function buildBody(body: unknown | undefined, opts?: RequestInit): BodyInit | undefined {
-  if (!body) return undefined;
-  // multipart/form-data => pass the raw form data the browser sent
-  if (body instanceof FormData) return body;
-  // Blob / File (raw photo upload)
-  if (body instanceof Blob) return body;
-  // default: JSON
-  return JSON.stringify(body);
+export interface Me {
+  email: string;
+  emailVerified: boolean;
+  hasProfile: boolean;
 }
+
+export const requestLink = (email: string) =>
+  api<{ ok: true; devUrl?: string }>("/auth/request", { method: "POST", body: { email } });
+
+export const verifyLink = (token: string) =>
+  api<{ ok: true }>("/auth/verify", { method: "POST", body: { token } });
+
+export const logout = () => api<{ ok: true }>("/auth/logout", { method: "POST" });
+
+export const getMe = () => api<Me>("/me");

@@ -7,3 +7,6 @@ dev-media
 *.log
 .DS_Store
 coverage
+.playwright-mcp
+*.png
+!design/**/*.png

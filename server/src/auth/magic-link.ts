@@ -1,92 +1,105 @@
-import { randomBytes } from "crypto";
-import { eq } from "drizzle-orm";
-import { db, authUsers } from "../storage/db";
-import { sendEmail } from "../services/email";
+import { and, eq, gt } from "drizzle-orm";
+import { db, authUsers } from "../storage/db.js";
+import { newToken, hashToken } from "../lib/tokens.js";
+import { sendEmail } from "../services/email.js";
+import { config } from "../config.js";
+
+export interface LinkRequestResult {
+  /** Always true. Never reveals whether the address is known. */
+  ok: true;
+  /** Development only, when SMTP has no credentials — never set in production. */
+  devUrl?: string;
+}
 
 /**
- * Generate a cryptographically random verification token,
- * store its hash in the DB, and send the plaintext token via email.
- *
- * In dev mode (no SMTP configured), the verification URL is returned
- * in the response and logged to the console instead of being emailed.
+ * Send a sign-in link. Register and sign-in are the same operation: an
+ * address either receives a link or silently does not, and the response
+ * is identical either way, so this endpoint cannot enumerate accounts.
  */
-export async function requestMagicLink(email: string): Promise<{ ok: boolean; devUrl?: string }> {
-  const token = randomBytes(32).toString("base64url");
-  const tokenHash = hashToken(token);
-  const expiresAt = new Date(Date.now() + 15 * 60_000); // 15 min
+export async function requestMagicLink(rawEmail: string): Promise<LinkRequestResult> {
+  const email = rawEmail.trim().toLowerCase();
+  const token = newToken();
+  const expiresAt = new Date(Date.now() + config.MAGIC_LINK_TTL_MS);
 
   const [existing] = await db
-    .select()
+    .select({ id: authUsers.id, isDeleted: authUsers.isDeleted })
     .from(authUsers)
-    .where(eq(authUsers.email, email.toLowerCase()))
+    .where(eq(authUsers.email, email))
     .limit(1);
 
-  if (existing && existing.emailVerified) {
-    return { ok: true }; // silently succeed — don't reveal existence
+  if (existing?.isDeleted) {
+    // A deleted account does not come back by asking for a link, and we
+    // say nothing that distinguishes it from an address we have never seen.
+    return { ok: true };
   }
 
-  // Delete any unused tokens for this email
-  await db.delete(authUsers).where(eq(authUsers.email, email.toLowerCase()));
-
-  // Upsert the user + token
   if (existing) {
+    // Replace the pending token. The August version DELETED the user row
+    // here, which destroyed the account (and everything cascading from it)
+    // every time someone asked for a second link.
     await db
       .update(authUsers)
       .set({
-        verificationTokenHash: tokenHash,
+        verificationTokenHash: hashToken(token),
         verificationTokenExpiresAt: expiresAt,
         updatedAt: new Date(),
       })
-      .where(eq(authUsers.email, email.toLowerCase()));
+      .where(eq(authUsers.id, existing.id));
   } else {
     await db.insert(authUsers).values({
-      email: email.toLowerCase(),
-      verificationTokenHash: tokenHash,
+      email,
+      verificationTokenHash: hashToken(token),
       verificationTokenExpiresAt: expiresAt,
     });
   }
 
-  const verifyUrl = new URL(
-    "/verify",
-    process.env.EMAIL_MAGIC_LINK_BASE_URL
-  );
-  verifyUrl.searchParams.set("token", token);
+  const url = new URL("/verify", config.EMAIL_MAGIC_LINK_BASE_URL);
+  url.searchParams.set("token", token);
 
-  const smtpConfigured = process.env.SMTP_USER && process.env.SMTP_PASS;
-
-  if (!smtpConfigured) {
-    // Dev mode: log the URL instead of sending email
-    console.log(
-      `[DEV] Magic link for ${email}: ${verifyUrl.toString()}`
-    );
-    return { ok: true, devUrl: verifyUrl.toString() };
-  }
+  const smtpConfigured = config.SMTP_USER !== "" && config.SMTP_PASS !== "";
 
   await sendEmail({
-    to: email.toLowerCase(),
-    subject: "Your Tum Mile verification link",
-    text: `Open this link to verify your email:\n\n${verifyUrl.toString()}\n\nThis link expires in 15 minutes.`,
+    to: email,
+    subject: "Your link to Tum Mile",
+    text: [
+      "Someone asked for a link to sign in to Tum Mile with this address.",
+      "",
+      url.toString(),
+      "",
+      "It works once, and only for the next fifteen minutes.",
+      "If this was not you, nothing has happened — ignore this and the link expires.",
+    ].join("\n"),
   });
+
+  // In local development SMTP is Mailpit with no credentials; hand the URL
+  // back so the flow is testable without opening the inbox. Guarded twice:
+  // unconfigured SMTP *and* not production.
+  if (!smtpConfigured && config.NODE_ENV !== "production") {
+    return { ok: true, devUrl: url.toString() };
+  }
 
   return { ok: true };
 }
 
-export async function verifyMagicLink(
-  token: string
-): Promise<{ ok: boolean; userId?: string; emailVerified?: boolean }> {
-  const tokenHash = hashToken(token);
+export interface VerifyResult {
+  ok: boolean;
+  authUserId?: string;
+}
 
-  const [user] = await db
-    .select()
-    .from(authUsers)
-    .where(eq(authUsers.verificationTokenHash, tokenHash))
-    .limit(1);
-
-  if (!user) return { ok: false };
-  if (user.verificationTokenExpiresAt < new Date())
-    return { ok: false };
-
-  await db
+/**
+ * Consume a link, exactly once.
+ *
+ * This is a single conditional UPDATE ... RETURNING rather than a SELECT
+ * followed by an UPDATE, and that matters: Postgres evaluates the WHERE
+ * against a locked row, so of two requests racing with the same token
+ * exactly one gets a row back and the other gets nothing.
+ *
+ * The read-then-write version passed a sequential replay test and still
+ * minted two sessions from one link when a client fired the request twice
+ * at once — which React's StrictMode does on every mount in development.
+ */
+export async function verifyMagicLink(token: string): Promise<VerifyResult> {
+  const [claimed] = await db
     .update(authUsers)
     .set({
       emailVerified: true,
@@ -94,16 +107,16 @@ export async function verifyMagicLink(
       verificationTokenExpiresAt: null,
       updatedAt: new Date(),
     })
-    .where(eq(authUsers.id, user.id));
+    .where(
+      and(
+        eq(authUsers.verificationTokenHash, hashToken(token)),
+        gt(authUsers.verificationTokenExpiresAt, new Date()),
+        eq(authUsers.isDeleted, false)
+      )
+    )
+    .returning({ id: authUsers.id });
 
-  return { ok: true, userId: user.id, emailVerified: true };
-}
+  if (!claimed) return { ok: false };
 
-// ─── Internal helpers ─────────────────────────────────────────────
-
-function hashToken(token: string): string {
-  return require("crypto")
-    .createHmac("sha256", process.env.SESSION_SECRET!)
-    .update(token)
-    .digest("hex");
+  return { ok: true, authUserId: claimed.id };
 }

@@ -1,117 +1,67 @@
 import Fastify from "fastify";
-import helmet from "@fastify/helmet";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
-import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
-import { config } from "./config";
-import { securityHeaders, cspHeader } from "./middleware/security-headers";
-import { setupErrorHandler } from "./middleware/error-handler";
-import { registerRoute, loginRoute, verifyRoute, logoutRoute } from "./routes/auth";
-import { profileRoutes } from "./routes/profile";
-import { mediaRoutes } from "./routes/media";
-import { adminRoutes } from "./routes/admin";
-import { getDb } from "./storage/db";
-import { logAudit } from "./services/audit";
-import { pruneStaleBuckets } from "./middleware/rate-limit";
+import { config, isProd } from "./config.js";
+import { securityHeaders } from "./middleware/security-headers.js";
+import { setupErrorHandler } from "./middleware/error-handler.js";
+import { pruneStaleBuckets } from "./middleware/rate-limit.js";
+import { authRoutes } from "./routes/auth/index.js";
+import { pruneExpiredSessions } from "./auth/session.js";
+import { closeDb } from "./storage/db.js";
 
-const app = Fastify({
-  logger: {
-    level: config.NODE_ENV === "development" ? "info" : "warn",
-    transport:
-      config.NODE_ENV === "development"
-        ? { target: "pino-pretty" }
-        : undefined,
-  },
-}).withTypeProvider<TypeBoxTypeProvider>();
-
-// ─── Plugins ─────────────────────────────────────────────────────
-app.register(helmet, {
-  contentSecurityPolicy: {
-    directives: {
-      ...(config.NODE_ENV === "development"
-        ? {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "blob:"],
-            connectSrc: ["'self'", "http://localhost:*", "ws://localhost:*"],
-            frameAncestors: ["'none'"],
-          }
-        : {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'"],
-            styleSrc: ["'self'"],
-            imgSrc: ["'self'", "data:", "blob:"],
-            connectSrc: ["'self'"],
-            frameAncestors: ["'none'"],
-            baseUri: ["'self'"],
-          }),
+export function buildApp() {
+  const app = Fastify({
+    logger: config.NODE_ENV === "test" ? false : {
+      level: isProd ? "warn" : "info",
+      transport: isProd ? undefined : { target: "pino-pretty" },
+      // Never let a request log carry the session cookie or a sign-in link.
+      redact: {
+        paths: ["req.headers.cookie", "req.headers.authorization", "req.body.token"],
+        remove: true,
+      },
     },
-  },
-});
+  });
 
-app.register(cors, {
-  origin: config.CORS_ORIGIN,
-  credentials: true,
-});
+  app.register(cors, { origin: config.CORS_ORIGIN, credentials: true });
+  app.register(cookie, { secret: config.SESSION_SECRET });
 
-app.register(cookie, {
-  secret: process.env.SESSION_SECRET,
-});
+  app.addHook("onSend", securityHeaders);
+  setupErrorHandler(app);
 
-// ─── Middleware ──────────────────────────────────────────────────
-app.addHook("onRequest", async (request, reply) => {
-  securityHeaders(request as any, reply);
-});
+  app.get("/health", async () => ({ status: "ok" }));
+  app.register(authRoutes, { prefix: "/api/v1" });
 
-// ─── Error handler ───────────────────────────────────────────────
-setupErrorHandler(app);
+  return app;
+}
 
-// ─── Health ──────────────────────────────────────────────────────
-app.get("/health", async () => {
-  return { status: "ok" };
-});
+async function start(): Promise<void> {
+  const app = buildApp();
 
-// ─── Auth routes (unauthenticated) ───────────────────────────────
-app.register(async function authRoutes(app) {
-  app.register(registerRoute, { prefix: "/api/v1/auth" });
-  app.register(loginRoute, { prefix: "/api/v1/auth" });
-  app.register(verifyRoute, { prefix: "/api/v1/auth" });
-  app.register(logoutRoute, { prefix: "/api/v1/auth" });
-});
+  const maintenance = setInterval(() => {
+    pruneStaleBuckets();
+    void pruneExpiredSessions();
+  }, 5 * 60_000);
 
-// ─── Profile routes (Phase 1) ────────────────────────────────────
-app.register(profileRoutes, { prefix: "/api/v1" });
+  const shutdown = async (signal: string): Promise<void> => {
+    app.log.info(`${signal} — shutting down`);
+    clearInterval(maintenance);
+    await app.close();
+    await closeDb();
+    process.exit(0);
+  };
 
-// ─── Media (serves local dev photos) ─────────────────────────────
-app.register(mediaRoutes, { prefix: "/api/v1" });
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
-// ─── Admin routes (Phase 1 — photo moderation) ──────────────────
-app.register(adminRoutes, { prefix: "/api/v1" });
-
-// ─── Periodic maintenance ────────────────────────────────────────
-setInterval(() => {
-  pruneStaleBuckets();
-}, 5 * 60_000);
-
-// ─── Start ───────────────────────────────────────────────────────
-const start = async () => {
   try {
-    // DB warmup
-    getDb();
-
-    await app.listen({ port: config.PORT, host: "0.0.0.0" });
-    app.log.info(`Server running on http://localhost:${config.PORT}`);
+    await app.listen({ port: config.PORT, host: "127.0.0.1" });
   } catch (err) {
     app.log.error(err);
     process.exit(1);
   }
-};
+}
 
-start();
-
-// ─── Graceful shutdown ───────────────────────────────────────────
-process.on("SIGINT", async () => {
-  await app.close();
-  process.exit(0);
-});
+// Only listen when run directly; tests import buildApp().
+if (process.argv[1]?.endsWith("index.ts") || process.argv[1]?.endsWith("index.js")) {
+  void start();
+}

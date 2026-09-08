@@ -1,53 +1,64 @@
-import dotenv from "dotenv";
+import "dotenv/config";
 import { z } from "zod";
 
-dotenv.config();
-
+// Every tunable lives here. If a value is read from process.env anywhere
+// else in the codebase, that is a bug — it means it has no schema, no
+// default, and no validation at boot.
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  PORT: z.coerce.number().default(3001),
-  CORS_ORIGIN: z.string().default("http://localhost:5173"),
+  // 3001 is Uptime Kuma on this machine; 3007 to stay out of its way.
+  PORT: z.coerce.number().default(3007),
+  CORS_ORIGIN: z.string().url().default("http://localhost:5173"),
 
   DATABASE_URL: z.string().url(),
 
+  // Sessions
   SESSION_COOKIE_NAME: z.string().default("tum_mile_session"),
   SESSION_SECRET: z.string().min(32),
-  SESSION_IDLE_TIMEOUT_MS: z.coerce.number().default(86_400_000),
-  SESSION_ABSOLUTE_TIMEOUT_MS: z.coerce.number().default(2_592_000_000),
+  SESSION_IDLE_TIMEOUT_MS: z.coerce.number().default(86_400_000), // 1 day
+  SESSION_ABSOLUTE_TIMEOUT_MS: z.coerce.number().default(2_592_000_000), // 30 days
 
-  EMAIL_FROM: z.string().default("Tum Mile <hello@tummile.in>"),
-  EMAIL_MAGIC_LINK_BASE_URL: z.string().url(),
+  // Email
+  EMAIL_FROM: z.string().default("Tum Mile <hello@tummile.local>"),
+  EMAIL_MAGIC_LINK_BASE_URL: z.string().url().default("http://localhost:5173"),
+  MAGIC_LINK_TTL_MS: z.coerce.number().default(900_000), // 15 min
 
   SMTP_HOST: z.string().default("localhost"),
-  SMTP_PORT: z.coerce.number().default(1025),
+  SMTP_PORT: z.coerce.number().default(1025), // Mailpit
   SMTP_SECURE: z.coerce.boolean().default(false),
-  SMTP_USER: z.string().optional().default(""),
-  SMTP_PASS: z.string().optional().default(""),
+  SMTP_USER: z.string().default(""),
+  SMTP_PASS: z.string().default(""),
 
-  STORAGE_MODE: z.enum(["local", "s3"]).default("local"),
-  STORAGE_LOCAL_DIR: z.string().default("./dev-media"),
-  S3_ENDPOINT: z.string().optional().default(""),
-  S3_REGION: z.string().optional().default("us-east-1"),
-  S3_BUCKET: z.string().optional().default(""),
-  S3_ACCESS_KEY: z.string().optional().default(""),
-  S3_SECRET_KEY: z.string().optional().default(""),
+  // The single pre-provisioned moderator identity.
+  ADMIN_EMAIL: z.string().email().optional(),
 
+  // Daily budgets. Browsing is free; deciding is what is scarce.
+  BUDGET_OUTBOUND_PER_DAY: z.coerce.number().default(6),
+  BUDGET_INBOUND_PER_DAY: z.coerce.number().default(9),
+  INBOUND_EXPIRY_DAYS: z.coerce.number().default(5),
+
+  // Rate limits
   RATE_LIMIT_MAGIC_LINK: z.coerce.number().default(3),
   RATE_LIMIT_MAGIC_LINK_WINDOW_MS: z.coerce.number().default(3_600_000),
   RATE_LIMIT_VERIFY: z.coerce.number().default(10),
   RATE_LIMIT_VERIFY_WINDOW_MS: z.coerce.number().default(900_000),
-  RATE_LIMIT_DISCOVERY: z.coerce.number().default(30),
+  RATE_LIMIT_DISCOVERY: z.coerce.number().default(60),
   RATE_LIMIT_DISCOVERY_WINDOW_MS: z.coerce.number().default(60_000),
-  RATE_LIMIT_LIKES: z.coerce.number().default(20),
-  RATE_LIMIT_LIKES_WINDOW_MS: z.coerce.number().default(3_600_000),
-  RATE_LIMIT_MESSAGE: z.coerce.number().default(40),
-  RATE_LIMIT_MESSAGE_WINDOW_MS: z.coerce.number().default(3_600_000),
+  RATE_LIMIT_WRITE: z.coerce.number().default(40),
+  RATE_LIMIT_WRITE_WINDOW_MS: z.coerce.number().default(3_600_000),
   RATE_LIMIT_REPORT: z.coerce.number().default(5),
   RATE_LIMIT_REPORT_WINDOW_MS: z.coerce.number().default(3_600_000),
-  RATE_LIMIT_PHOTO_UPLOAD: z.coerce.number().default(10),
-  RATE_LIMIT_PHOTO_UPLOAD_WINDOW_MS: z.coerce.number().default(3_600_000),
 });
 
-export const config = envSchema.parse(process.env);
+const parsed = envSchema.safeParse(process.env);
 
+if (!parsed.success) {
+  // Names only — never the values, which are secrets.
+  const bad = parsed.error.issues.map((i) => i.path.join(".")).join(", ");
+  throw new Error(`Invalid environment configuration: ${bad}`);
+}
+
+export const config = parsed.data;
 export type Config = z.infer<typeof envSchema>;
+
+export const isProd = config.NODE_ENV === "production";

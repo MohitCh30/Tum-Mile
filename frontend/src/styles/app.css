@@ -1,0 +1,216 @@
+/* Nocturne, as the running app. The weather layers are the same six
+   from the canvas: ground, lamp, two rains, haze behind, condensation
+   in front. Everything else derives from tokens.css. */
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--ground-mid);
+  color: var(--text);
+  font-family: var(--face-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.scene {
+  position: relative;
+  min-height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(150% 60% at 50% 100%, rgba(217, 143, 60, 0.07), rgba(217, 143, 60, 0) 60%),
+    linear-gradient(180deg, var(--ground-top) 0%, var(--ground-mid) 52%, var(--ground-deep) 100%);
+}
+
+.lamp, .rain-far, .rain-near, .haze, .grain, .condensation {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.lamp {
+  z-index: 1;
+  background:
+    radial-gradient(210px 280px at 80% 14%, rgba(217, 143, 60, 0.2), rgba(217, 143, 60, 0) 72%),
+    radial-gradient(320px 200px at 12% 78%, rgba(126, 142, 144, 0.1), rgba(126, 142, 144, 0) 70%);
+}
+
+.rain-far {
+  z-index: 2;
+  opacity: var(--rain-far);
+  background-image: repeating-linear-gradient(99deg,
+    rgba(198, 224, 228, 0) 0 6px,
+    rgba(198, 224, 228, 0.3) 6px 7px,
+    rgba(198, 224, 228, 0) 7px 17px);
+  background-size: auto 260px;
+  animation: fall 2.1s linear infinite;
+}
+
+.rain-near {
+  z-index: 3;
+  opacity: var(--rain-near);
+  background-image: repeating-linear-gradient(103deg,
+    rgba(214, 236, 240, 0) 0 3px,
+    rgba(214, 236, 240, 0.55) 3px 4.5px,
+    rgba(214, 236, 240, 0) 4.5px 11px);
+  background-size: auto 170px;
+  animation: fall 0.95s linear infinite;
+}
+
+@keyframes fall {
+  from { background-position: 0 0; }
+  to { background-position: 0 100%; }
+}
+
+.haze {
+  z-index: 4;
+  background: radial-gradient(125% 78% at 50% 42%,
+    rgba(8, 16, 18, 0) 40%, rgba(8, 16, 18, 0.42) 78%, rgba(8, 16, 18, 0.72) 100%);
+}
+
+.grain {
+  z-index: 5;
+  opacity: var(--grain);
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='160' height='160' filter='url(%23n)' opacity='0.55'/></svg>");
+}
+
+/* Sits in FRONT of the type and actually blurs it, masked to the edges. */
+.condensation {
+  z-index: 7;
+  backdrop-filter: blur(var(--blur-pane));
+  -webkit-backdrop-filter: blur(var(--blur-pane));
+  background: radial-gradient(120% 72% at 50% 42%,
+    rgba(196, 220, 226, 0) 46%, rgba(196, 220, 226, 0.05) 80%, rgba(212, 234, 238, 0.1) 100%);
+  -webkit-mask-image: radial-gradient(118% 70% at 50% 42%,
+    rgba(0, 0, 0, 0) 48%, rgba(0, 0, 0, 0.5) 76%, rgba(0, 0, 0, 1) 100%);
+  mask-image: radial-gradient(118% 70% at 50% 42%,
+    rgba(0, 0, 0, 0) 48%, rgba(0, 0, 0, 0.5) 76%, rgba(0, 0, 0, 1) 100%);
+}
+
+.seam {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--seam-x);
+  width: 1px;
+  z-index: 5;
+  pointer-events: none;
+  background: linear-gradient(to bottom,
+    rgba(126, 142, 144, 0) 0%, rgba(126, 142, 144, 0.3) 22%,
+    rgba(217, 143, 60, 0.22) 55%, rgba(126, 142, 144, 0.3) 78%,
+    rgba(126, 142, 144, 0) 100%);
+}
+
+.content {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 460px;
+  margin: 0 auto;
+  padding: var(--gutter);
+}
+
+/* ── Type ─────────────────────────────────────────────────────── */
+
+.wordmark {
+  font-family: var(--face-display);
+  font-weight: 500;
+  font-size: 13.5px;
+  letter-spacing: 0.06em;
+  color: var(--text-name);
+}
+
+.meta {
+  font-family: var(--face-meta);
+  font-weight: 300;
+  font-size: var(--size-meta);
+  letter-spacing: var(--track-meta);
+  color: var(--muted-deepest);
+}
+
+.label {
+  font-family: var(--face-meta);
+  font-weight: 300;
+  font-size: var(--size-meta);
+  letter-spacing: var(--track-label);
+  color: var(--muted-deep);
+}
+
+/* Amber is reserved for what a person wrote. */
+.said {
+  font-family: var(--face-display);
+  font-size: var(--size-display);
+  line-height: var(--lead-display);
+  letter-spacing: var(--track-display);
+  color: var(--lamp);
+  text-shadow: 0 0 40px rgba(217, 143, 60, 0.3);
+  text-wrap: pretty;
+}
+
+.prose {
+  font-family: var(--face-body);
+  font-size: var(--size-body);
+  line-height: var(--lead-body);
+  color: var(--text-read);
+  text-wrap: pretty;
+}
+
+/* ── Controls ─────────────────────────────────────────────────── */
+
+.field {
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 15px;
+  background: var(--pane);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: var(--face-body);
+  font-size: var(--size-body);
+}
+
+.field::placeholder { color: var(--muted-deepest); }
+
+.field:focus-visible,
+.button:focus-visible {
+  outline: 2px solid var(--lamp-core);
+  outline-offset: 2px;
+}
+
+.button {
+  height: var(--control-h);
+  padding: 0 22px;
+  background: var(--pane-act);
+  border: 1px solid var(--line-warm);
+  color: var(--lamp-ink);
+  font-family: var(--face-meta);
+  font-size: 13.5px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) { border-color: rgba(217, 143, 60, 0.55); }
+.button:disabled { opacity: 0.45; cursor: default; }
+
+.button-quiet {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--text-name);
+}
+
+.stack { display: flex; flex-direction: column; gap: var(--gap); }
+.row { display: flex; gap: 10px; align-items: center; }
+.grow { flex-grow: 1; }
+
+.notice { font-family: var(--face-body); font-size: 13px; line-height: 1.7; color: var(--text-name); }
+.notice-bad { color: #d8907e; }
+
+a { color: var(--lamp-core); }
+a:hover { color: var(--lamp); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rain-far, .rain-near { animation: none; }
+}

@@ -1,453 +1,233 @@
-import { useState, useEffect, useCallback } from "react";
-import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation } from "react-router-dom";
-import { getSession, clearSession } from "./lib/auth";
-import { api } from "./lib/api";
-import type { ProfileApi } from "./lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, useNavigate, useSearchParams } from "react-router-dom";
+import { ApiError, getMe, logout, requestLink, verifyLink, type Me } from "./lib/api";
 
-/* ─── types ──────────────────────────────────────────────────────── */
+/* ── the window everything is read through ────────────────────── */
 
-type ApiProfileResponse = {
-  profile: ProfileApi | null;
-  email: string | null;
-};
-
-/* ─── root router ────────────────────────────────────────────────── */
-
-function RouterInner() {
-  const [authed, setAuthed] = useState(() => !!getSession());
-  const refresh = useCallback(() => setAuthed(!!getSession()), []);
-
+function Scene({ children }: { children: React.ReactNode }) {
   return (
-    <Routes>
-      <Route path="/register" element={<RegisterPage onAuthed={refresh} />} />
-      <Route path="/login" element={<LoginPage onAuthed={refresh} />} />
-      <Route path="/verify" element={<VerifyPage onVerified={refresh} />} />
-      <Route
-        path="/profile"
-        element={authed ? <ProfilePage onLoggedOut={() => setAuthed(false)} /> : <Landing />}
-      />
-      <Route path="/" element={<Landing />} />
-      <Route path="*" element={<Landing />} />
-    </Routes>
-  );
-}
-
-export default function App() {
-  return <BrowserRouter><RouterInner /></BrowserRouter>;
-}
-
-/* ─── shared layout ──────────────────────────────────────────────── */
-
-function Nav({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        maxWidth: 480,
-        margin: "40px auto",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-        lineHeight: 1.5,
-      }}
-    >
-      <h1 style={{ fontSize: 24, marginBottom: 4 }}>Tum Mile</h1>
-      <p style={{ fontSize: 13, color: "#555", margin: "0 0 12px" }}>
-        Privacy-first dating. Who meets whom — you decide.
-      </p>
-      <nav
-        style={{
-          borderBottom: "1px solid #eee",
-          paddingBottom: 10,
-          marginBottom: 16,
-          display: "flex",
-          gap: 16,
-          fontSize: 14,
-        }}
-      >
-        <Link to="/">Home</Link>
-        {getSession() ? (
-          <Link to="/profile">My Profile</Link>
-        ) : (
-          <>
-            <Link to="/login">Log in</Link>
-            <span style={{ color: "#ccc" }}>|</span>
-            <Link to="/register">Register</Link>
-          </>
-        )}
-      </nav>
-      <main>{children}</main>
+    <div className="scene">
+      <div className="lamp" />
+      <div className="rain-far" />
+      <div className="rain-near" />
+      <div className="haze" />
+      <div className="grain" />
+      <div className="seam" />
+      <div className="condensation" />
+      <div className="content">{children}</div>
     </div>
   );
 }
 
-/* ─── landing page ───────────────────────────────────────────────── */
-
-function Landing() {
+function Header({ right }: { right?: string }) {
   return (
-    <Nav>
-      <h2 style={{ marginTop: 20 }}>Find someone who fits your world</h2>
-      <p>
-        Tum Mile uses a single magic link — no password, no friction. We verify
-        your email, you set your preferences, and you decide how openly you
-        share.
-      </p>
-      <ul style={{ textAlign: "left" }}>
-        <li>Email-only sign-up. No phone number, no OTP spam.</li>
-        <li>Your data stays yours. Privacy by design.</li>
-        <li>Photo moderation so you control your image.</li>
-      </ul>
-      <p>
-        <Link to="/register">Create an account</Link>
-        {" "}·{" "}
-        <Link to="/login">Log in</Link>
-      </p>
-    </Nav>
+    <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+      <div className="wordmark">Tum Mile</div>
+      {right ? <div className="meta">{right}</div> : null}
+    </div>
   );
 }
 
-/* ─── auth forms ─────────────────────────────────────────────────── */
+/* ── asking for a link ────────────────────────────────────────── */
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function AuthForm({
-  mode,
-  onAuthed,
-}: {
-  mode: "register" | "login";
-  onAuthed: () => void;
-}) {
+function SignIn() {
   const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [devUrl, setDevUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const endpoint = mode === "register" ? "/auth/register" : "/auth/login";
-
-  function onSubmit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setBusy(true);
     setError(null);
-    setDevUrl(null);
-
-    if (!EMAIL_RE.test(email)) {
-      setError("Enter a valid email address.");
-      return;
+    try {
+      const res = await requestLink(email);
+      setSent(true);
+      setDevUrl(res.devUrl ?? null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
     }
-
-    setLoading(true);
-    api<{ ok: boolean; devUrl?: string }>(endpoint, {
-      method: "POST",
-      body: { email },
-    })
-      .then((d) => {
-        setSent(true);
-        if (d.devUrl) setDevUrl(d.devUrl);
-      })
-      .catch((err: any) => setError(err.message ?? "Request failed."))
-      .finally(() => setLoading(false));
   }
 
   return (
-    <Nav>
-      <h2>{mode === "register" ? "Create your account" : "Welcome back"}</h2>
-      <p style={{ fontSize: 13, color: "#555" }}>
-        {mode === "register"
-          ? "Enter your email and we'll send a verification link."
-          : "Enter your email and we'll send you a magic link."}
-      </p>
+    <Scene>
+      <Header />
 
-      {sent && !devUrl && (
-        <p style={{ color: "#2a7" }}>Check your inbox for the verification link.</p>
-      )}
-      {devUrl && (
-        <div
-          style={{
-            background: "#f6ffed",
-            border: "1px solid #b7eb8f",
-            padding: 12,
-            borderRadius: 6,
-            fontSize: 13,
-            marginBottom: 12,
-          }}
-        >
-          <p>
-            <strong>Dev mode — no email sent</strong>
-          </p>
-          <p>Open the link below to verify:</p>
-          <a href={devUrl} style={{ wordBreak: "break-all" }}>
-            {devUrl}
-          </a>
-          <p style={{ marginTop: 8, color: "#888" }}>
-            This link expires in 15 minutes.
-          </p>
+      <div className="grow" style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 44 }}>
+        <div className="stack" style={{ gap: 26 }}>
+          <div className="label">people here are read, not looked at</div>
+          <div className="said">You will not find a single photograph on this website.</div>
         </div>
-      )}
 
-      {!sent && (
-        <form
-          onSubmit={onSubmit}
-          style={{ display: "flex", flexDirection: "column", gap: 12 }}
-        >
-          <label>
-            Email
+        {sent ? (
+          <div className="stack">
+            <p className="notice">
+              If that address can be written to, a link is on its way. It works once, and only for
+              the next fifteen minutes.
+            </p>
+            {devUrl ? (
+              <p className="notice">
+                Local development — <a href={devUrl}>open the link</a>, or read it in the{" "}
+                <a href="http://localhost:8025" target="_blank" rel="noreferrer">Mailpit inbox</a>.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <form className="stack" onSubmit={submit}>
+            <label className="label" htmlFor="email">your email address</label>
             <input
+              id="email"
+              className="field"
               type="email"
+              required
+              autoComplete="email"
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              autoFocus
-              style={{
-                width: "100%",
-                padding: 8,
-                marginTop: 4,
-                fontSize: 14,
-                boxSizing: "border-box",
-              }}
             />
-          </label>
-          {error && (
-            <p style={{ color: "#c00", fontSize: 13 }}>{error}</p>
-          )}
-          <button
-            type="submit"
-            disabled={loading}
-            style={{ padding: "10px 16px", fontSize: 14 }}
-          >
-            {loading
-              ? "Sending…"
-              : mode === "register"
-              ? "Send verification link"
-              : "Send magic link"}
-          </button>
-          <p style={{ fontSize: 13, color: "#888" }}>
-            {mode === "register" ? (
-              <>
-                Already have an account? <Link to="/login">Log in</Link>
-              </>
-            ) : (
-              <>
-                Don't have an account? <Link to="/register">Register</Link>
-              </>
-            )}
-          </p>
-        </form>
-      )}
-    </Nav>
+            <button className="button" type="submit" disabled={busy || email.length === 0}>
+              {busy ? "Sending…" : "Send me a link"}
+            </button>
+            {error ? <p className="notice notice-bad">{error}</p> : null}
+            <p className="notice" style={{ color: "var(--muted-deep)" }}>
+              No password to forget, and nothing to remember. We only ever ask for an address.
+            </p>
+          </form>
+        )}
+      </div>
+    </Scene>
   );
 }
 
-function RegisterPage({ onAuthed }: { onAuthed: () => void }) {
-  return <AuthForm mode="register" onAuthed={onAuthed} />;
-}
+/* ── coming back through the link ─────────────────────────────── */
 
-function LoginPage({ onAuthed }: { onAuthed: () => void }) {
-  return <AuthForm mode="login" onAuthed={onAuthed} />;
-}
-
-/* ─── verify (magic-link callback) ───────────────────────────────── */
-
-function VerifyPage({ onVerified }: { onVerified: () => void }) {
+function Verify({ onSignedIn }: { onSignedIn: () => void }) {
+  const [params] = useSearchParams();
   const navigate = useNavigate();
-  const location = useLocation();
-  const token = new URLSearchParams(location.search).get("token");
-
-  useEffect(() => {
-    if (!token) return;
-    api(`/auth/verify?token=${encodeURIComponent(token)}`, { method: "GET" })
-      .then(() => onVerified())
-      .catch(() => {})
-      .finally(() => navigate("/profile", { replace: true }));
-  }, [token, navigate]);
-
-  return <Nav><p>Verifying your email — hold on…</p></Nav>;
-}
-
-/* ─── profile page ───────────────────────────────────────────────── */
-
-function ProfilePage({ onLoggedOut }: { onLoggedOut: () => void }) {
-  const [response, setResponse] = useState<ApiProfileResponse | null>(null);
-  const [profileRow, setProfileRow] = useState<ProfileApi | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({
-    displayName: "",
-    bio: "",
-    birthDate: "",
-    gender: "",
-  });
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const token = params.get("token");
 
   useEffect(() => {
-    api<ApiProfileResponse>("/profile")
-      .then((d) => {
-        setResponse(d);
-        if (d.profile) {
-          setProfileRow(d.profile);
-          setForm({
-            displayName: d.profile.displayName ?? "",
-            bio: d.profile.bio ?? "",
-            birthDate: d.profile.birthDate?.slice(0, 10) ?? "",
-            gender: d.profile.gender ?? "",
-          });
-        }
+    if (!token) {
+      setError("That link is missing its token.");
+      return;
+    }
+    let cancelled = false;
+    verifyLink(token)
+      .then(() => {
+        if (cancelled) return;
+        onSignedIn();
+        navigate("/", { replace: true });
       })
-      .catch((e: any) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    const payload: Record<string, unknown> = {};
-    if (form.displayName) payload.displayName = form.displayName;
-    if (form.bio) payload.bio = form.bio;
-    if (form.birthDate)
-      payload.birthDate = new Date(form.birthDate).toISOString();
-    if (form.gender) payload.gender = form.gender;
-
-    try {
-      const d = await api<{ profile: ProfileApi }>("/profile", {
-        method: "PATCH",
-        body: payload,
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(
+          err instanceof ApiError
+            ? "That link has already been used, or it has expired."
+            : "Something went wrong."
+        );
       });
-      setProfileRow(d.profile);
-      setEditing(false);
-    } catch (e: any) {
-      setError(e.message ?? "Save failed.");
-    }
-  }
-
-  async function handleLogout() {
-    try {
-      await api("/auth/logout", { method: "POST" });
-    } catch {}
-    clearSession();
-    onLoggedOut();
-    navigate("/");
-  }
-
-  async function handlePhotoUpload(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-    const f = new FormData(e.currentTarget);
-    const file = f.get("photo");
-    if (!(file instanceof File)) return;
-    try {
-      await api("/profile/photos", { method: "POST", body: file });
-      setError("Photo uploaded — pending moderation.");
-      setTimeout(() => setError(null), 4000);
-    } catch (e: any) {
-      setError(e.message ?? "Upload failed.");
-    }
-  }
-
-  if (loading) return <Nav><p>Loading…</p></Nav>;
-  if (error) return <Nav><p style={{ color: "#c00" }}>{error}</p></Nav>;
+    return () => {
+      cancelled = true;
+    };
+  }, [token, navigate, onSignedIn]);
 
   return (
-    <Nav>
-      <p>
-        <strong>Signed in as</strong> {response?.email ?? "—"}
-      </p>
+    <Scene>
+      <Header />
+      <div className="grow" style={{ display: "flex", alignItems: "center" }}>
+        {error ? (
+          <div className="stack">
+            <p className="notice notice-bad">{error}</p>
+            <p className="notice">
+              <a href="/">Ask for another one.</a>
+            </p>
+          </div>
+        ) : (
+          <p className="notice">Letting you in…</p>
+        )}
+      </div>
+    </Scene>
+  );
+}
 
-      {editing ? (
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
-            maxWidth: 360,
-          }}
-        >
-          <label>
-            Display name
-            <input
-              value={form.displayName}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, displayName: e.target.value }))
-              }
-            />
-          </label>
-          <label>
-            Bio
-            <textarea
-              value={form.bio}
-              onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
-            />
-          </label>
-          <label>
-            Date of birth
-            <input
-              type="date"
-              value={form.birthDate}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, birthDate: e.target.value }))
-              }
-            />
-          </label>
-          <label>
-            Gender
-            <input
-              value={form.gender}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, gender: e.target.value }))
-              }
-            />
-          </label>
-          <button type="submit">Save profile</button>
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-          >
-            Cancel
-          </button>
-        </form>
-      ) : profileRow ? (
-        <div>
-          <p>
-            <strong>Name:</strong> {profileRow.displayName ?? "—"}
-          </p>
-          <p>
-            <strong>About:</strong> {profileRow.bio || "—"}
-          </p>
-          <p>
-            <strong>DOB:</strong>{" "}
-            {profileRow.birthDate
-              ? new Date(profileRow.birthDate).toISOString().slice(0, 10)
-              : "—"}
-          </p>
-          <p>
-            <strong>Gender:</strong> {profileRow.gender || "—"}
-          </p>
-          <button
-            onClick={() => setEditing(true)}
-            style={{ marginTop: 10 }}
-          >
-            Edit profile
-          </button>
+/* ── signed in ────────────────────────────────────────────────── */
+
+function Home({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
+  async function signOut() {
+    try {
+      await logout();
+    } finally {
+      onSignedOut();
+    }
+  }
+
+  return (
+    <Scene>
+      <Header right="six left today" />
+      <div className="grow" style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 40 }}>
+        <div className="stack" style={{ gap: 22 }}>
+          <div className="label">signed in as {me.email}</div>
+          <div className="said">There is nobody here yet. You are the first one in.</div>
         </div>
-      ) : (
-        <div>
-          <p>No profile yet. Fill in the form to create one.</p>
-          <button onClick={() => setEditing(true)}>Create profile</button>
-        </div>
-      )}
+        <p className="prose">
+          Your profile is next — a line, a letter, and what you are reading. Until then there is
+          nothing to read and nobody to read it.
+        </p>
+      </div>
+      <div className="row">
+        <button className="button button-quiet" onClick={signOut}>Sign out</button>
+      </div>
+    </Scene>
+  );
+}
 
-      <hr style={{ margin: "20px 0" }} />
-      <form onSubmit={handlePhotoUpload} style={{ marginBottom: 16 }}>
-        <h3 style={{ margin: "0 0 8px" }}>Profile photo</h3>
-        <input
-          type="file"
-          name="photo"
-          accept="image/jpeg,image/png"
-          required
-        />
-        <button type="submit" style={{ marginTop: 8 }}>
-          Upload
-        </button>
-      </form>
+/* ── root ─────────────────────────────────────────────────────── */
 
-      <button onClick={handleLogout}>Log out</button>
-    </Nav>
+function App() {
+  const [me, setMe] = useState<Me | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      setMe(await getMe());
+    } catch {
+      setMe(null);
+    } finally {
+      setLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  if (!loaded) {
+    return (
+      <Scene>
+        <Header />
+      </Scene>
+    );
+  }
+
+  return (
+    <Routes>
+      <Route path="/verify" element={<Verify onSignedIn={refresh} />} />
+      <Route
+        path="*"
+        element={me ? <Home me={me} onSignedOut={() => setMe(null)} /> : <SignIn />}
+      />
+    </Routes>
+  );
+}
+
+export default function Root() {
+  return (
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   );
 }
