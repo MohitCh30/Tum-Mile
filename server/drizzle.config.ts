@@ -5,6 +5,9 @@ export default defineConfig({
   out: "./src/storage/migrations",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL || "postgres://tummile:REPLACE_ME@localhost:5432/tummile",
+    // compose publishes 5434 on the host (5432 was already taken)
+    url:
+      process.env.DATABASE_URL ||
+      "postgres://tummile:REPLACE_ME@localhost:5434/tummile",
   },
 });
