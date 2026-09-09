@@ -6,6 +6,8 @@ import { securityHeaders } from "./middleware/security-headers.js";
 import { setupErrorHandler } from "./middleware/error-handler.js";
 import { pruneStaleBuckets } from "./middleware/rate-limit.js";
 import { authRoutes } from "./routes/auth/index.js";
+import { profileRoutes } from "./routes/profile/index.js";
+import { discoveryRoutes } from "./routes/discovery/index.js";
 import { pruneExpiredSessions } from "./auth/session.js";
 import { closeDb } from "./storage/db.js";
 
@@ -30,6 +32,8 @@ export function buildApp() {
 
   app.get("/health", async () => ({ status: "ok" }));
   app.register(authRoutes, { prefix: "/api/v1" });
+  app.register(profileRoutes, { prefix: "/api/v1" });
+  app.register(discoveryRoutes, { prefix: "/api/v1" });
 
   return app;
 }

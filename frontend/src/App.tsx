@@ -1,6 +1,27 @@
-import { useCallback, useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, useNavigate, useSearchParams } from "react-router-dom";
-import { ApiError, getMe, logout, requestLink, verifyLink, type Me } from "./lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  NavLink,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+import {
+  ApiError,
+  getMatches,
+  getMe,
+  getPrompts,
+  logout,
+  requestLink,
+  verifyLink,
+  type MatchSummary,
+  type Me,
+} from "./lib/api";
+import { Discovery } from "./screens/Discovery";
+import { ProfileEdit } from "./screens/ProfileEdit";
+import { Inbound } from "./screens/Inbound";
+import { ProfileRead } from "./screens/ProfileRead";
 
 /* ── the window everything is read through ────────────────────── */
 
@@ -19,12 +40,41 @@ function Scene({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Header({ right }: { right?: string }) {
+function Shell({ children, onSignedOut }: { children: React.ReactNode; onSignedOut: () => void }) {
+  async function signOut() {
+    try {
+      await logout();
+    } finally {
+      onSignedOut();
+    }
+  }
+
   return (
-    <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-      <div className="wordmark">Tum Mile</div>
-      {right ? <div className="meta">{right}</div> : null}
-    </div>
+    <Scene>
+      <header className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+        <div className="wordmark">Tum Mile</div>
+        <button className="linkish meta" onClick={signOut}>
+          sign out
+        </button>
+      </header>
+
+      <nav className="row nav">
+        {[
+          ["/", "Read"],
+          ["/letters", "Letters"],
+          ["/matches", "Matches"],
+          ["/you", "You"],
+        ].map(([to, label]) => (
+          <NavLink key={to} to={to} end={to === "/"} className="navlink">
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <main className="grow" style={{ paddingTop: 30 }}>
+        {children}
+      </main>
+    </Scene>
   );
 }
 
@@ -54,9 +104,11 @@ function SignIn() {
 
   return (
     <Scene>
-      <Header />
-
-      <div className="grow" style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 44 }}>
+      <div className="wordmark">Tum Mile</div>
+      <div
+        className="grow"
+        style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 44 }}
+      >
         <div className="stack" style={{ gap: 26 }}>
           <div className="label">people here are read, not looked at</div>
           <div className="said">You will not find a single photograph on this website.</div>
@@ -71,13 +123,18 @@ function SignIn() {
             {devUrl ? (
               <p className="notice">
                 Local development — <a href={devUrl}>open the link</a>, or read it in the{" "}
-                <a href="http://localhost:8025" target="_blank" rel="noreferrer">Mailpit inbox</a>.
+                <a href="http://localhost:8025" target="_blank" rel="noreferrer">
+                  Mailpit inbox
+                </a>
+                .
               </p>
             ) : null}
           </div>
         ) : (
           <form className="stack" onSubmit={submit}>
-            <label className="label" htmlFor="email">your email address</label>
+            <label className="label" htmlFor="email">
+              your email address
+            </label>
             <input
               id="email"
               className="field"
@@ -102,12 +159,11 @@ function SignIn() {
   );
 }
 
-/* ── coming back through the link ─────────────────────────────── */
-
 function Verify({ onSignedIn }: { onSignedIn: () => void }) {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const attempted = useRef<string | null>(null);
   const token = params.get("token");
 
   useEffect(() => {
@@ -115,29 +171,35 @@ function Verify({ onSignedIn }: { onSignedIn: () => void }) {
       setError("That link is missing its token.");
       return;
     }
-    let cancelled = false;
+
+    // A link is good exactly once, so it must be spent exactly once.
+    // Without this guard React's StrictMode fires the effect twice, the
+    // server correctly refuses the second attempt, and a link that just
+    // worked reports itself as already used. A double-click did the same.
+    if (attempted.current === token) return;
+    attempted.current = token;
+
     verifyLink(token)
       .then(() => {
-        if (cancelled) return;
         onSignedIn();
         navigate("/", { replace: true });
       })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(
-          err instanceof ApiError
-            ? "That link has already been used, or it has expired."
-            : "Something went wrong."
-        );
+      .catch(async () => {
+        // The token may have been spent by an attempt that succeeded —
+        // ask who we are before deciding this failed.
+        try {
+          await getMe();
+          onSignedIn();
+          navigate("/", { replace: true });
+        } catch {
+          setError("That link has already been used, or it has expired.");
+        }
       });
-    return () => {
-      cancelled = true;
-    };
   }, [token, navigate, onSignedIn]);
 
   return (
     <Scene>
-      <Header />
+      <div className="wordmark">Tum Mile</div>
       <div className="grow" style={{ display: "flex", alignItems: "center" }}>
         {error ? (
           <div className="stack">
@@ -154,34 +216,44 @@ function Verify({ onSignedIn }: { onSignedIn: () => void }) {
   );
 }
 
-/* ── signed in ────────────────────────────────────────────────── */
+/* ── matches ──────────────────────────────────────────────────── */
 
-function Home({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
-  async function signOut() {
-    try {
-      await logout();
-    } finally {
-      onSignedOut();
-    }
+function Matches() {
+  const [matches, setMatches] = useState<MatchSummary[] | null>(null);
+  const [prompts, setPrompts] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    void getMatches()
+      .then((res) => setMatches(res.matches))
+      .catch(() => setMatches([]));
+    // Without the bank an answer renders as its slug ("annoying-book")
+    // instead of the question it answers.
+    void getPrompts()
+      .then((bank) => setPrompts(new Map(bank.prompts.map((p) => [p.id, p.body]))))
+      .catch(() => undefined);
+  }, []);
+
+  if (!matches) return <p className="notice">Looking…</p>;
+
+  if (matches.length === 0) {
+    return (
+      <div className="stack" style={{ gap: 20 }}>
+        <div className="said said-sm">Nobody yet.</div>
+        <p className="prose">
+          When you and someone else have both written, they appear here. Nothing announces it.
+        </p>
+      </div>
+    );
   }
 
   return (
-    <Scene>
-      <Header right="six left today" />
-      <div className="grow" style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 40 }}>
-        <div className="stack" style={{ gap: 22 }}>
-          <div className="label">signed in as {me.email}</div>
-          <div className="said">There is nobody here yet. You are the first one in.</div>
-        </div>
-        <p className="prose">
-          Your profile is next — a line, a letter, and what you are reading. Until then there is
-          nothing to read and nobody to read it.
-        </p>
-      </div>
-      <div className="row">
-        <button className="button button-quiet" onClick={signOut}>Sign out</button>
-      </div>
-    </Scene>
+    <div className="stack" style={{ gap: 30 }}>
+      {matches.map((match) => (
+        <section className="card" key={match.id}>
+          <ProfileRead profile={match.with} prompts={prompts} />
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -208,7 +280,7 @@ function App() {
   if (!loaded) {
     return (
       <Scene>
-        <Header />
+        <div className="wordmark">Tum Mile</div>
       </Scene>
     );
   }
@@ -216,10 +288,44 @@ function App() {
   return (
     <Routes>
       <Route path="/verify" element={<Verify onSignedIn={refresh} />} />
-      <Route
-        path="*"
-        element={me ? <Home me={me} onSignedOut={() => setMe(null)} /> : <SignIn />}
-      />
+      {me ? (
+        <>
+          <Route
+            path="/"
+            element={
+              <Shell onSignedOut={() => setMe(null)}>
+                <Discovery />
+              </Shell>
+            }
+          />
+          <Route
+            path="/letters"
+            element={
+              <Shell onSignedOut={() => setMe(null)}>
+                <Inbound />
+              </Shell>
+            }
+          />
+          <Route
+            path="/matches"
+            element={
+              <Shell onSignedOut={() => setMe(null)}>
+                <Matches />
+              </Shell>
+            }
+          />
+          <Route
+            path="/you"
+            element={
+              <Shell onSignedOut={() => setMe(null)}>
+                <ProfileEdit onSaved={refresh} />
+              </Shell>
+            }
+          />
+        </>
+      ) : (
+        <Route path="*" element={<SignIn />} />
+      )}
     </Routes>
   );
 }
