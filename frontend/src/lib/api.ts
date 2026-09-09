@@ -175,3 +175,60 @@ export const sendPass = (profileId: string) =>
 
 export const getInbound = () => api<{ likes: InboundLike[]; budget: Budget }>("/likes/inbound");
 export const getMatches = () => api<{ matches: MatchSummary[] }>("/matches");
+
+/* ── conversation ─────────────────────────────────────────────── */
+
+export interface Message {
+  id: string;
+  body: string;
+  at: string;
+  mine: boolean;
+  reactions: { reaction: string; mine: boolean }[];
+}
+
+export interface Conversation {
+  with: { id: string; displayName: string } | null;
+  messages: Message[];
+  latest: string | null;
+}
+
+export const getReactions = () => api<{ reactions: string[] }>("/reactions");
+
+export const getMessages = (matchId: string, after?: string | null) =>
+  api<Conversation>(
+    `/matches/${matchId}/messages${after ? `?after=${encodeURIComponent(after)}` : ""}`
+  );
+
+export const sendMessage = (matchId: string, body: string) =>
+  api<Message>(`/matches/${matchId}/messages`, { method: "POST", body: { body } });
+
+export const react = (messageId: string, reaction: string) =>
+  api<void>(`/messages/${messageId}/reaction`, { method: "PUT", body: { reaction } });
+
+export const unreact = (messageId: string) =>
+  api<void>(`/messages/${messageId}/reaction`, { method: "DELETE" });
+
+/* ── safety ───────────────────────────────────────────────────── */
+
+export type ReportReason = "spam" | "harassment" | "scam" | "deception" | "other";
+
+export const blockProfile = (profileId: string) =>
+  api<void>("/blocks", { method: "POST", body: { profileId } });
+
+export const getBlocks = () =>
+  api<{ blocks: { id: string; name: string; since: string }[] }>("/blocks");
+
+export const unblockProfile = (profileId: string) =>
+  api<void>(`/blocks/${profileId}`, { method: "DELETE" });
+
+export const reportProfile = (input: {
+  profileId: string;
+  reason: ReportReason;
+  details?: string;
+  matchId?: string;
+}) => api<{ id: string }>("/reports", { method: "POST", body: input });
+
+/* ── account ──────────────────────────────────────────────────── */
+
+export const deleteAccount = () =>
+  api<void>("/account", { method: "DELETE", body: { confirm: "delete my account" } });

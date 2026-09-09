@@ -346,6 +346,14 @@ export const reports = pgTable(
     matchId: text("match_id").references(() => matches.id, { onDelete: "set null" }),
     reason: text("reason").notNull(),
     details: text("details").default(""),
+    // The one place message bodies are permitted to be stored outside a
+    // conversation. A report is useless without what was said, and a
+    // block scrubs the conversation — so evidence is captured at the
+    // moment of reporting or it is gone. Nothing else may read this.
+    evidence: jsonb("evidence")
+      .$type<{ messageId: string; body: string; at: string }[]>()
+      .notNull()
+      .default([]),
     status: text("status").notNull().default("submitted"),
     resolution: jsonb("resolution").$type<Record<string, unknown> | null>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -376,3 +376,51 @@ a:hover { color: var(--lamp); }
 h2.label, h3.prompt { font-weight: inherit; }
 
 main { padding-bottom: 60px; }
+
+/* ── conversation ─────────────────────────────────────────────── */
+
+.conversation {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.conversation > li { display: flex; flex-direction: column; gap: 5px; }
+.said-by-me { align-items: flex-end; }
+.said-by-them { align-items: flex-start; }
+
+.bubble {
+  max-width: 78%;
+  padding: 12px 15px;
+  font-family: var(--face-body);
+  font-size: var(--size-body);
+  line-height: 1.7;
+  border: 1px solid var(--line-soft);
+}
+
+.said-by-me .bubble { background: var(--pane-you); color: var(--text-soft); }
+.said-by-them .bubble { background: var(--pane-them); color: var(--paper); }
+
+.reaction { font-size: 14px; }
+
+.reaction-add {
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px 8px;
+  min-height: 24px;
+  color: var(--muted-deepest);
+}
+
+.reaction-pick {
+  background: transparent;
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  min-height: 36px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.reaction-pick:hover { border-color: var(--line-warm); }

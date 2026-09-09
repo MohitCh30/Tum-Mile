@@ -8,6 +8,13 @@
       "when": 1788891821577,
       "tag": "0000_familiar_pyro",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788952171065,
+      "tag": "0001_unique_hydra",
+      "breakpoints": true
     }
   ]
 }

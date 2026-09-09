@@ -22,6 +22,8 @@ import { Discovery } from "./screens/Discovery";
 import { ProfileEdit } from "./screens/ProfileEdit";
 import { Inbound } from "./screens/Inbound";
 import { ProfileRead } from "./screens/ProfileRead";
+import { Conversation } from "./screens/Conversation";
+import { Account } from "./screens/Account";
 
 /* ── the window everything is read through ────────────────────── */
 
@@ -64,6 +66,7 @@ function Shell({ children, onSignedOut }: { children: React.ReactNode; onSignedO
           ["/letters", "Letters"],
           ["/matches", "Matches"],
           ["/you", "You"],
+          ["/account", "Account"],
         ].map(([to, label]) => (
           <NavLink key={to} to={to} end={to === "/"} className="navlink">
             {label}
@@ -221,17 +224,36 @@ function Verify({ onSignedIn }: { onSignedIn: () => void }) {
 function Matches() {
   const [matches, setMatches] = useState<MatchSummary[] | null>(null);
   const [prompts, setPrompts] = useState<Map<string, string>>(new Map());
+  const [open, setOpen] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setMatches((await getMatches()).matches);
+    } catch {
+      setMatches([]);
+    }
+  }, []);
 
   useEffect(() => {
-    void getMatches()
-      .then((res) => setMatches(res.matches))
-      .catch(() => setMatches([]));
+    void load();
     // Without the bank an answer renders as its slug ("annoying-book")
     // instead of the question it answers.
     void getPrompts()
       .then((bank) => setPrompts(new Map(bank.prompts.map((p) => [p.id, p.body]))))
       .catch(() => undefined);
-  }, []);
+  }, [load]);
+
+  if (open) {
+    return (
+      <Conversation
+        matchId={open}
+        onLeft={() => {
+          setOpen(null);
+          void load();
+        }}
+      />
+    );
+  }
 
   if (!matches) return <p className="notice">Looking…</p>;
 
@@ -249,8 +271,11 @@ function Matches() {
   return (
     <div className="stack" style={{ gap: 30 }}>
       {matches.map((match) => (
-        <section className="card" key={match.id}>
+        <section className="card stack" style={{ gap: 18 }} key={match.id}>
           <ProfileRead profile={match.with} prompts={prompts} />
+          <button className="button" onClick={() => setOpen(match.id)}>
+            Write to {match.with.displayName}
+          </button>
         </section>
       ))}
     </div>
@@ -311,6 +336,14 @@ function App() {
             element={
               <Shell onSignedOut={() => setMe(null)}>
                 <Matches />
+              </Shell>
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              <Shell onSignedOut={() => setMe(null)}>
+                <Account onGone={() => setMe(null)} />
               </Shell>
             }
           />

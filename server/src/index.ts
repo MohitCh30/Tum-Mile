@@ -8,6 +8,10 @@ import { pruneStaleBuckets } from "./middleware/rate-limit.js";
 import { authRoutes } from "./routes/auth/index.js";
 import { profileRoutes } from "./routes/profile/index.js";
 import { discoveryRoutes } from "./routes/discovery/index.js";
+import { messageRoutes } from "./routes/messages/index.js";
+import { safetyRoutes } from "./routes/safety/index.js";
+import { accountRoutes } from "./routes/account/index.js";
+import { adminRoutes } from "./routes/admin/index.js";
 import { pruneExpiredSessions } from "./auth/session.js";
 import { closeDb } from "./storage/db.js";
 
@@ -34,6 +38,10 @@ export function buildApp() {
   app.register(authRoutes, { prefix: "/api/v1" });
   app.register(profileRoutes, { prefix: "/api/v1" });
   app.register(discoveryRoutes, { prefix: "/api/v1" });
+  app.register(messageRoutes, { prefix: "/api/v1" });
+  app.register(safetyRoutes, { prefix: "/api/v1" });
+  app.register(accountRoutes, { prefix: "/api/v1" });
+  app.register(adminRoutes, { prefix: "/api/v1" });
 
   return app;
 }
