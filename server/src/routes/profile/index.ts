@@ -18,6 +18,7 @@ import {
 } from "../../content/prompts.js";
 import { ageFrom, MINIMUM_AGE, completeness, toPublicProfile } from "../../lib/profile.js";
 import { encodeGeohash, distanceKm, distanceBand } from "../../lib/geo.js";
+import { updateProfileEmbedding } from "../../services/embeddings.js";
 
 const writeLimit = {
   name: "profile-write",
@@ -136,6 +137,7 @@ export const profileRoutes: FastifyPluginAsync = async (app) => {
         // Own view still never sees a coordinate; there isn't one.
         hasLocation: profile.locationGeohash !== null,
         locationGeohash: undefined,
+        embedding: undefined,
       },
       complete: state.complete,
       missing: state.missing,
@@ -223,11 +225,21 @@ export const profileRoutes: FastifyPluginAsync = async (app) => {
         meta: { fields: Object.keys(patch).filter((k) => k !== "updatedAt") },
       });
 
+      // Recomputed from the writing. Never fatal: a profile save must not
+      // fail because an optional scoring term could not be produced.
+      await updateProfileEmbedding(profileId);
+
       const [saved] = await db.select().from(profiles).where(eq(profiles.id, profileId));
       const state = completeness(saved);
 
       return reply.status(200).send({
-        profile: { ...saved, age: ageFrom(saved.birthDate), locationGeohash: undefined },
+        profile: {
+          ...saved,
+          age: ageFrom(saved.birthDate),
+          locationGeohash: undefined,
+          // 384 numbers nobody needs in a browser.
+          embedding: undefined,
+        },
         complete: state.complete,
         missing: state.missing,
       });

@@ -1,6 +1,7 @@
 import type { Profile, QuestionAnswer } from "../storage/schema.js";
 import { ageFrom } from "./profile.js";
 import { distanceKm } from "./geo.js";
+import { cosineSimilarity } from "../services/embeddings.js";
 
 /**
  * Compatibility, as arithmetic.
@@ -24,11 +25,12 @@ import { distanceKm } from "./geo.js";
 
 /** Published weights. Change them in a commit, with a reason. */
 export const WEIGHTS = {
-  answers: 0.4,
-  interests: 0.25,
-  languages: 0.1,
-  age: 0.1,
-  proximity: 0.15,
+  answers: 0.34,
+  text: 0.16,
+  interests: 0.2,
+  languages: 0.08,
+  age: 0.08,
+  proximity: 0.14,
 } as const;
 
 /** A profile seen for the first time gets a hand up, once. */
@@ -37,6 +39,8 @@ export const NEWCOMER_DAYS = 14;
 
 export interface Breakdown {
   answers: number | null;
+  /** How alike the two people's WRITING is. Null when either has none. */
+  text: number | null;
   interests: number;
   languages: number;
   age: number;
@@ -124,6 +128,30 @@ function proximity(a: Profile, b: Profile): number {
   return 1 - (km - 5) / 95;
 }
 
+/**
+ * Text affinity, rescaled to where the signal actually lives.
+ *
+ * Cosine similarity never approaches 0 for two pieces of English, so the
+ * raw number separates nobody. Measured on five deliberately different
+ * profiles with this model: two literary ones sat at 0.66, a gym profile
+ * and a startup profile at 0.55, and genuinely unrelated pairs at
+ * 0.43-0.48. So the useful band is roughly 0.42 to 0.70, and that is what
+ * is stretched across 0..1 here.
+ *
+ * These constants are model-specific. Change the model and they have to
+ * be measured again — the numbers above came from running it, not from
+ * guessing, and an earlier guess of 0.55-0.95 would have clamped almost
+ * every pairing to zero.
+ */
+function textAffinity(a: Profile, b: Profile): number | null {
+  if (!a.embedding || !b.embedding) return null;
+  const cosine = cosineSimilarity(a.embedding, b.embedding);
+  if (cosine === null) return null;
+  const FLOOR = 0.42;
+  const CEILING = 0.7;
+  return Math.min(1, Math.max(0, (cosine - FLOOR) / (CEILING - FLOOR)));
+}
+
 function newcomerBonus(profile: Profile, now: Date): number {
   const days = (now.getTime() - profile.createdAt.getTime()) / 86_400_000;
   if (days >= NEWCOMER_DAYS) return 0;
@@ -149,8 +177,11 @@ export function compatibility(
   const sharedInterests = overlap(viewer.interests, candidate.interests);
   const sharedLanguages = overlap(viewer.languages, candidate.languages);
 
+  const text = textAffinity(viewer, candidate);
+
   const breakdown: Breakdown = {
     answers,
+    text,
     interests: jaccard(viewer.interests, candidate.interests),
     languages: jaccard(viewer.languages, candidate.languages),
     age: ageAffinity(viewer, candidate, now),
@@ -158,13 +189,15 @@ export function compatibility(
     newcomer: newcomerBonus(candidate, now),
   };
 
-  // With no questions answered yet, that weight is redistributed across
-  // the rest rather than scoring everyone as though they had failed it.
+  // A term that does not apply — no questions answered, no embedding —
+  // has its weight redistributed across the rest, rather than scoring
+  // everyone as though they had failed it.
   const usableWeight =
-    answers === null ? 1 - WEIGHTS.answers : 1;
+    1 - (answers === null ? WEIGHTS.answers : 0) - (text === null ? WEIGHTS.text : 0);
 
   let score =
     (answers === null ? 0 : WEIGHTS.answers * answers) +
+    (text === null ? 0 : WEIGHTS.text * text) +
     WEIGHTS.interests * breakdown.interests +
     WEIGHTS.languages * breakdown.languages +
     WEIGHTS.age * breakdown.age +

@@ -16,6 +16,7 @@ const CODES: Record<string, { status: number; message: string }> = {
   VALIDATION_ERROR: { status: 400, message: "That request was not valid." },
   RATE_LIMITED: { status: 429, message: "Too many attempts. Try again later." },
   BUDGET_EXHAUSTED: { status: 429, message: "That is all six for today." },
+  TOO_MANY_NON_NEGOTIABLE: { status: 400, message: "Three is the most you can insist on." },
   INTERNAL_ERROR: { status: 500, message: "Something went wrong." },
 };
 

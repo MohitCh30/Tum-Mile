@@ -13,6 +13,9 @@ export default defineConfig({
       SMTP_HOST: "localhost",
       SMTP_PORT: "1025",
       ADMIN_EMAIL: "admin@tummile.local",
+      // The model is a 128MB download and a multi-second load; the score
+      // is designed to be correct without it, and that is what is tested.
+      EMBEDDINGS_ENABLED: "false",
     },
     // One file at a time: these share a database, and parallel suites
     // would race each other's cleanup rather than the code under test.

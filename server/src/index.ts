@@ -8,12 +8,15 @@ import { pruneStaleBuckets } from "./middleware/rate-limit.js";
 import { authRoutes } from "./routes/auth/index.js";
 import { profileRoutes } from "./routes/profile/index.js";
 import { discoveryRoutes } from "./routes/discovery/index.js";
+import { questionRoutes } from "./routes/questions/index.js";
 import { messageRoutes } from "./routes/messages/index.js";
 import { safetyRoutes } from "./routes/safety/index.js";
 import { accountRoutes } from "./routes/account/index.js";
 import { adminRoutes } from "./routes/admin/index.js";
 import { pruneExpiredSessions } from "./auth/session.js";
 import { closeDb } from "./storage/db.js";
+import { seedQuestions } from "./storage/seed-questions.js";
+import { warmEmbeddings } from "./services/embeddings.js";
 
 export function buildApp() {
   const app = Fastify({
@@ -38,6 +41,7 @@ export function buildApp() {
   app.register(authRoutes, { prefix: "/api/v1" });
   app.register(profileRoutes, { prefix: "/api/v1" });
   app.register(discoveryRoutes, { prefix: "/api/v1" });
+  app.register(questionRoutes, { prefix: "/api/v1" });
   app.register(messageRoutes, { prefix: "/api/v1" });
   app.register(safetyRoutes, { prefix: "/api/v1" });
   app.register(accountRoutes, { prefix: "/api/v1" });
@@ -48,6 +52,13 @@ export function buildApp() {
 
 async function start(): Promise<void> {
   const app = buildApp();
+
+  // The bank lives in code; this makes the table agree with it.
+  const seeded = await seedQuestions();
+  app.log.info(seeded, "question bank synced");
+
+  // Loads in the background; the first profile save should not wait on it.
+  warmEmbeddings();
 
   const maintenance = setInterval(() => {
     pruneStaleBuckets();

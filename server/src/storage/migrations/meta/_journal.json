@@ -15,6 +15,13 @@
       "when": 1788952171065,
       "tag": "0001_unique_hydra",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789024279963,
+      "tag": "0002_windy_sersi",
+      "breakpoints": true
     }
   ]
 }

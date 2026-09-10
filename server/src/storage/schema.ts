@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   index,
   check,
+  vector,
 } from "drizzle-orm/pg-core";
 import { createId as cuid2Id } from "@paralleldrive/cuid2";
 
@@ -129,6 +130,16 @@ export const profiles = pgTable(
       .default({ showDistance: true }),
 
     moderationStatus: text("moderation_status").notNull().default("active"),
+
+    // What this person's WRITING is about, as a vector.
+    //
+    // Derived from the one-line, the chosen form and the prompt answers —
+    // never from messages, which are private. It is one term in the
+    // compatibility score and the app is correct without it: null here
+    // simply means that term does not apply.
+    embedding: vector("embedding", { dimensions: 384 }),
+    embeddedAt: timestamp("embedded_at", { withTimezone: true }),
+
     locationGeohash: text("location_geohash"),
     lastLocationUpdate: timestamp("last_location_update", { withTimezone: true }),
 
@@ -138,6 +149,8 @@ export const profiles = pgTable(
   (t) => [
     uniqueIndex("idx_profiles_auth_user").on(t.authUserId),
     index("idx_profiles_geohash").on(t.locationGeohash),
+    index("idx_profiles_embedding")
+      .using("hnsw", t.embedding.op("vector_cosine_ops")),
     check("one_line_length", sql`char_length(${t.oneLine}) <= 90`),
     check(
       "form_type_valid",

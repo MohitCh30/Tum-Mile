@@ -4,6 +4,19 @@ import { z } from "zod";
 // Every tunable lives here. If a value is read from process.env anywhere
 // else in the codebase, that is a bug — it means it has no schema, no
 // default, and no validation at boot.
+/**
+ * Booleans from the environment.
+ *
+ * NOT z.coerce.boolean(), which applies JavaScript truthiness: the string
+ * "false" is a non-empty string, so it coerces to TRUE. Every documented
+ * way of switching something off in a .env file would have switched it on.
+ */
+const boolish = (fallback: boolean) =>
+  z
+    .enum(["true", "false", "1", "0", "yes", "no", "on", "off"])
+    .default(fallback ? "true" : "false")
+    .transform((v) => v === "true" || v === "1" || v === "yes" || v === "on");
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   // 3001 is Uptime Kuma on this machine; 3007 to stay out of its way.
@@ -25,12 +38,17 @@ const envSchema = z.object({
 
   SMTP_HOST: z.string().default("localhost"),
   SMTP_PORT: z.coerce.number().default(1025), // Mailpit
-  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_SECURE: boolish(false),
   SMTP_USER: z.string().default(""),
   SMTP_PASS: z.string().default(""),
 
   // The single pre-provisioned moderator identity.
   ADMIN_EMAIL: z.string().email().optional(),
+
+  // Text affinity. Off in tests: loading a model would make every suite
+  // wait on it, and the score is designed to be correct without it.
+  EMBEDDINGS_ENABLED: boolish(true),
+  EMBEDDINGS_CACHE_DIR: z.string().default("./.models"),
 
   // Daily budgets. Browsing is free; deciding is what is scarce.
   BUDGET_OUTBOUND_PER_DAY: z.coerce.number().default(6),
