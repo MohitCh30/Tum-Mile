@@ -3,15 +3,24 @@ import { z } from "zod";
 import { requestMagicLink, verifyMagicLink } from "../../auth/magic-link.js";
 import { createSession, invalidateSession } from "../../auth/session.js";
 import { requireSession } from "../../middleware/auth.js";
-import { rateLimit } from "../../middleware/rate-limit.js";
+import { rateLimit, enforceSubjectLimit } from "../../middleware/rate-limit.js";
 import { logAudit } from "../../services/audit.js";
 import { config, isProd } from "../../config.js";
+import { canonicalEmail } from "../../lib/email.js";
 
 const requestSchema = z.object({ email: z.string().email().max(254) });
 const verifySchema = z.object({ token: z.string().min(20).max(200) });
 
-const linkLimit = {
-  name: "magic-link",
+/** Loose: one address can sit behind a whole campus. */
+const linkLimitPerIp = {
+  name: "magic-link-ip",
+  max: config.RATE_LIMIT_MAGIC_LINK_PER_IP,
+  windowMs: config.RATE_LIMIT_MAGIC_LINK_WINDOW_MS,
+};
+
+/** Strict: keyed on the inbox, so rotating aliases buys nothing. */
+const linkLimitPerAddress = {
+  name: "magic-link-address",
   max: config.RATE_LIMIT_MAGIC_LINK,
   windowMs: config.RATE_LIMIT_MAGIC_LINK_WINDOW_MS,
 };
@@ -34,8 +43,14 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
    * They are the same operation, and keeping them separate would let a
    * caller learn which addresses exist by comparing the two responses.
    */
-  app.post("/auth/request", { preHandler: [rateLimit(linkLimit)] }, async (request, reply) => {
+  app.post("/auth/request", { preHandler: [rateLimit(linkLimitPerIp)] }, async (request, reply) => {
     const { email } = requestSchema.parse(request.body);
+
+    // Keyed on the canonical inbox, so `you+1@`, `you+2@` and `y.o.u@`
+    // all draw from one allowance. Applied after the loose per-IP tier.
+    const canonical = canonicalEmail(email);
+    if (canonical) enforceSubjectLimit(canonical, linkLimitPerAddress);
+
     const result = await requestMagicLink(email);
 
     const body: Record<string, unknown> = { ok: true };

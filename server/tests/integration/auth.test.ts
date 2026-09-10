@@ -114,17 +114,46 @@ describe("POST /auth/request", () => {
     expect(JSON.parse(res.body).error.code).toBe("VALIDATION_ERROR");
   });
 
-  it("throttles, and rotating the address does not buy more attempts", async () => {
+  // Two tiers, doing different jobs. Rotating ALIASES of one inbox buys
+  // nothing, because the strict tier is keyed on the canonical address.
+  it("counts aliases of one inbox against one allowance", async () => {
     const codes: number[] = [];
-    for (let i = 0; i < 5; i++) {
+    for (const alias of [
+      "rotate@gmail.com",
+      "r.otate@gmail.com",
+      "rotate+1@gmail.com",
+      "ro.tate+2@gmail.com",
+      "r.o.t.a.t.e+3@gmail.com",
+    ]) {
       const res = await app.inject({
         method: "POST",
         url: `${API}/auth/request`,
-        payload: { email: `rotate-${i}@test.local` },
+        payload: { email: alias },
       });
       codes.push(res.statusCode);
     }
     expect(codes).toContain(429);
+  });
+
+  // Rotating to genuinely DIFFERENT inboxes is allowed up to the loose
+  // per-IP tier, deliberately: a college wifi puts a whole hostel behind
+  // one address, and a strict per-IP cap would lock all of them out.
+  //
+  // The trade is real and stated: one address may now probe up to
+  // RATE_LIMIT_MAGIC_LINK_PER_IP inboxes an hour rather than three. It
+  // learns nothing by doing so — the response is identical whether or not
+  // an account exists — so the cost is mail volume, not disclosure.
+  it("does not lock out everyone sharing one address", async () => {
+    const codes: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      const res = await app.inject({
+        method: "POST",
+        url: `${API}/auth/request`,
+        payload: { email: `classmate-${i}@msit.edu.in` },
+      });
+      codes.push(res.statusCode);
+    }
+    expect(codes.every((c) => c === 200)).toBe(true);
   });
 });
 

@@ -45,6 +45,12 @@ const envSchema = z.object({
   // The single pre-provisioned moderator identity.
   ADMIN_EMAIL: z.string().email().optional(),
 
+  // Behind a Cloudflare tunnel, cloudflared connects over loopback and
+  // every visitor looks like 127.0.0.1. Switch this on there so the real
+  // address is read from CF-Connecting-IP. Leave it OFF when the server
+  // is directly reachable — then the header is attacker-controlled.
+  TRUST_PROXY: boolish(false),
+
   // Text affinity. Off in tests: loading a model would make every suite
   // wait on it, and the score is designed to be correct without it.
   EMBEDDINGS_ENABLED: boolish(true),
@@ -56,8 +62,13 @@ const envSchema = z.object({
   INBOUND_EXPIRY_DAYS: z.coerce.number().default(5),
 
   // Rate limits
+  // Two tiers. The per-ADDRESS limit is what stops one person asking for
+  // twenty links; the per-IP one stops a machine working through a list.
+  // The IP tier is deliberately loose because a college wifi or an Indian
+  // mobile network puts hundreds of real people behind one address.
   RATE_LIMIT_MAGIC_LINK: z.coerce.number().default(3),
   RATE_LIMIT_MAGIC_LINK_WINDOW_MS: z.coerce.number().default(3_600_000),
+  RATE_LIMIT_MAGIC_LINK_PER_IP: z.coerce.number().default(40),
   RATE_LIMIT_VERIFY: z.coerce.number().default(10),
   RATE_LIMIT_VERIFY_WINDOW_MS: z.coerce.number().default(900_000),
   RATE_LIMIT_DISCOVERY: z.coerce.number().default(60),

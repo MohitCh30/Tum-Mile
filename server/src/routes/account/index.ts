@@ -200,6 +200,8 @@ export const accountRoutes: FastifyPluginAsync = async (app) => {
             // A tombstone rather than the address: the row must stay for
             // the foreign keys, but nothing in it should identify anyone.
             email: `deleted-${user.authUserId}@deleted.invalid`,
+            // Freed with the address, so a person who leaves can come back.
+            emailCanonical: null,
             emailVerified: false,
             verificationTokenHash: null,
             verificationTokenExpiresAt: null,

@@ -3,6 +3,7 @@ import { db, authUsers } from "../storage/db.js";
 import { newToken, hashToken } from "../lib/tokens.js";
 import { sendEmail } from "../services/email.js";
 import { config } from "../config.js";
+import { normaliseEmail } from "../lib/email.js";
 
 export interface LinkRequestResult {
   /** Always true. Never reveals whether the address is known. */
@@ -17,14 +18,24 @@ export interface LinkRequestResult {
  * is identical either way, so this endpoint cannot enumerate accounts.
  */
 export async function requestMagicLink(rawEmail: string): Promise<LinkRequestResult> {
-  const email = rawEmail.trim().toLowerCase();
+  const normalised = normaliseEmail(rawEmail);
+
+  // A malformed or throwaway address gets the SAME answer as a good one.
+  // Saying "that domain is not allowed" would tell a caller which
+  // providers work, and telling them anything different from the usual
+  // response would re-open the enumeration hole closed in Phase 2.
+  if (!normalised || normalised.disposable) return { ok: true };
+
+  const email = normalised.address;
   const token = newToken();
   const expiresAt = new Date(Date.now() + config.MAGIC_LINK_TTL_MS);
 
+  // Looked up by the CANONICAL key, so an alias of an existing inbox
+  // finds that account rather than creating a second one.
   const [existing] = await db
     .select({ id: authUsers.id, isDeleted: authUsers.isDeleted })
     .from(authUsers)
-    .where(eq(authUsers.email, email))
+    .where(eq(authUsers.emailCanonical, normalised.canonical))
     .limit(1);
 
   if (existing?.isDeleted) {
@@ -48,6 +59,7 @@ export async function requestMagicLink(rawEmail: string): Promise<LinkRequestRes
   } else {
     await db.insert(authUsers).values({
       email,
+      emailCanonical: normalised.canonical,
       verificationTokenHash: hashToken(token),
       verificationTokenExpiresAt: expiresAt,
     });

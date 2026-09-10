@@ -29,7 +29,11 @@ export const authUsers = pgTable(
   "auth_users",
   {
     id: text("id").primaryKey().$defaultFn(cuid2Id),
+    // What they typed, used for delivery.
     email: text("email").notNull().unique(),
+    // The identity key: aliases of one inbox collapse to the same value,
+    // so `mohit+3@gmail.com` cannot become a second account.
+    emailCanonical: text("email_canonical"),
     emailVerified: boolean("email_verified").notNull().default(false),
     verificationTokenHash: text("verification_token_hash"),
     verificationTokenExpiresAt: timestamp("verification_token_expires_at", {
@@ -39,7 +43,10 @@ export const authUsers = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("idx_auth_users_email").on(t.email)]
+  (t) => [
+    uniqueIndex("idx_auth_users_email").on(t.email),
+    uniqueIndex("idx_auth_users_email_canonical").on(t.emailCanonical),
+  ]
 );
 
 export const sessions = pgTable(

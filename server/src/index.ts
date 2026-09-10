@@ -17,6 +17,7 @@ import { adminRoutes } from "./routes/admin/index.js";
 import { pruneExpiredSessions } from "./auth/session.js";
 import { closeDb } from "./storage/db.js";
 import { seedQuestions } from "./storage/seed-questions.js";
+import { backfillCanonicalEmails } from "./storage/backfill-emails.js";
 import { warmEmbeddings } from "./services/embeddings.js";
 
 export function buildApp() {
@@ -58,6 +59,13 @@ async function start(): Promise<void> {
   // The bank lives in code; this makes the table agree with it.
   const seeded = await seedQuestions();
   app.log.info(seeded, "question bank synced");
+
+  const emails = await backfillCanonicalEmails();
+  if (emails.filled > 0 || emails.collisions.length > 0) {
+    // A collision means two existing accounts share one inbox. Reported,
+    // never merged — that is not a decision a backfill should take.
+    app.log.info(emails, "canonical email keys backfilled");
+  }
 
   // Loads in the background; the first profile save should not wait on it.
   warmEmbeddings();
