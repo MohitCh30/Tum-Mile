@@ -11,6 +11,7 @@ import {
   type Message,
   type ReportReason,
 } from "../lib/api";
+import { Scenes } from "./Scenes";
 
 const REASONS: { value: ReportReason; label: string }[] = [
   { value: "harassment", label: "Harassment" },
@@ -47,6 +48,7 @@ export function Conversation({
   const [reason, setReason] = useState<ReportReason>("harassment");
   const [details, setDetails] = useState("");
   const [reported, setReported] = useState(false);
+  const [tab, setTab] = useState<"talk" | "scene">("talk");
 
   const poll = useCallback(async () => {
     try {
@@ -204,6 +206,25 @@ export function Conversation({
 
       {reported ? <p className="notice">Reported. Nothing is shown to them.</p> : null}
 
+      <div className="row nav" style={{ marginTop: 0 }}>
+        {(["talk", "scene"] as const).map((which) => (
+          <button
+            key={which}
+            className={`navlink linkish${tab === which ? " active" : ""}`}
+            onClick={() => setTab(which)}
+            aria-pressed={tab === which}
+          >
+            {which === "talk" ? "Talk" : "Play a scene"}
+          </button>
+        ))}
+      </div>
+
+      {tab === "scene" ? (
+        <Scenes matchId={matchId} withWhom={withWhom?.displayName ?? "them"} />
+      ) : null}
+
+      {tab === "talk" ? (
+      <>
       <ol className="conversation">
         {messages.map((message) => (
           <li key={message.id} className={message.mine ? "said-by-me" : "said-by-them"}>
@@ -261,6 +282,8 @@ export function Conversation({
           Send
         </button>
       </form>
+      </>
+      ) : null}
     </div>
   );
 }

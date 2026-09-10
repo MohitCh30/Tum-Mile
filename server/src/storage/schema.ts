@@ -326,6 +326,74 @@ export const messageReactions = pgTable(
   (t) => [uniqueIndex("idx_reaction_message_profile").on(t.messageId, t.profileId)]
 );
 
+// ─── Two-handers ─────────────────────────────────────────────────
+//
+// A scene belongs to a match: it is something two matched people do
+// together, and every authorization check runs through the match, so a
+// scene can never be a second way to reach somebody.
+
+export const sceneSessions = pgTable(
+  "scene_sessions",
+  {
+    id: text("id").primaryKey().$defaultFn(cuid2Id),
+    matchId: text("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    // The premise lives in code; this is its slug.
+    premiseId: text("premise_id").notNull(),
+
+    // Who plays whom. Assigned, never chosen — otherwise everyone takes
+    // the sympathetic part and nobody learns anything.
+    castAId: text("cast_a_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    castBId: text("cast_b_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+
+    proposedById: text("proposed_by_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+
+    status: text("status").notNull().default("proposed"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_scenes_match").on(t.matchId),
+    check("scene_cast_differs", sql`${t.castAId} <> ${t.castBId}`),
+    check(
+      "scene_status_valid",
+      sql`${t.status} in ('proposed', 'declined', 'playing', 'letters', 'finished', 'abandoned')`
+    ),
+  ]
+);
+
+export const sceneTurns = pgTable(
+  "scene_turns",
+  {
+    id: text("id").primaryKey().$defaultFn(cuid2Id),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => sceneSessions.id, { onDelete: "cascade" }),
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    // Position in the scene. Strict alternation is enforced against this.
+    ordinal: integer("ordinal").notNull(),
+    body: text("body").notNull(),
+    // 'line' during the scene, 'letter' for the thing each keeps after.
+    kind: text("kind").notNull().default("line"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_scene_turns_session").on(t.sessionId, t.ordinal),
+    uniqueIndex("idx_scene_turn_position").on(t.sessionId, t.kind, t.ordinal),
+    check("scene_turn_kind_valid", sql`${t.kind} in ('line', 'letter')`),
+    check("scene_turn_ordinal_positive", sql`${t.ordinal} >= 0`),
+  ]
+);
+
 // ─── Safety ──────────────────────────────────────────────────────
 export const blocks = pgTable(
   "blocks",
@@ -439,6 +507,8 @@ export type Pass = typeof passes.$inferSelect;
 export type Match = typeof matches.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type MessageReaction = typeof messageReactions.$inferSelect;
+export type SceneSession = typeof sceneSessions.$inferSelect;
+export type SceneTurn = typeof sceneTurns.$inferSelect;
 export type Block = typeof blocks.$inferSelect;
 export type Report = typeof reports.$inferSelect;
 export type ModerationCase = typeof moderationCases.$inferSelect;

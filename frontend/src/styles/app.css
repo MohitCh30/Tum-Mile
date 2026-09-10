@@ -424,3 +424,16 @@ main { padding-bottom: 60px; }
 }
 
 .reaction-pick:hover { border-color: var(--line-warm); }
+
+/* A letter written in character keeps its line breaks. */
+.form-letter { white-space: pre-wrap; }
+
+.navlink.linkish {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: var(--face-meta);
+  font-weight: 300;
+  font-size: 12px;
+  letter-spacing: var(--track-meta);
+}

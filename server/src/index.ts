@@ -10,6 +10,7 @@ import { profileRoutes } from "./routes/profile/index.js";
 import { discoveryRoutes } from "./routes/discovery/index.js";
 import { questionRoutes } from "./routes/questions/index.js";
 import { messageRoutes } from "./routes/messages/index.js";
+import { sceneRoutes } from "./routes/scenes/index.js";
 import { safetyRoutes } from "./routes/safety/index.js";
 import { accountRoutes } from "./routes/account/index.js";
 import { adminRoutes } from "./routes/admin/index.js";
@@ -43,6 +44,7 @@ export function buildApp() {
   app.register(discoveryRoutes, { prefix: "/api/v1" });
   app.register(questionRoutes, { prefix: "/api/v1" });
   app.register(messageRoutes, { prefix: "/api/v1" });
+  app.register(sceneRoutes, { prefix: "/api/v1" });
   app.register(safetyRoutes, { prefix: "/api/v1" });
   app.register(accountRoutes, { prefix: "/api/v1" });
   app.register(adminRoutes, { prefix: "/api/v1" });

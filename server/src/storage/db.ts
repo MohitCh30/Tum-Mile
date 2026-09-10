@@ -26,6 +26,8 @@ export {
   matches,
   messages,
   messageReactions,
+  sceneSessions,
+  sceneTurns,
   blocks,
   reports,
   moderationCases,

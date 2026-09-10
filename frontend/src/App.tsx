@@ -24,6 +24,7 @@ import { Inbound } from "./screens/Inbound";
 import { ProfileRead } from "./screens/ProfileRead";
 import { Conversation } from "./screens/Conversation";
 import { Account } from "./screens/Account";
+import { Questions } from "./screens/Questions";
 
 /* ── the window everything is read through ────────────────────── */
 
@@ -66,6 +67,7 @@ function Shell({ children, onSignedOut }: { children: React.ReactNode; onSignedO
           ["/letters", "Letters"],
           ["/matches", "Matches"],
           ["/you", "You"],
+          ["/questions", "Questions"],
           ["/account", "Account"],
         ].map(([to, label]) => (
           <NavLink key={to} to={to} end={to === "/"} className="navlink">
@@ -336,6 +338,14 @@ function App() {
             element={
               <Shell onSignedOut={() => setMe(null)}>
                 <Matches />
+              </Shell>
+            }
+          />
+          <Route
+            path="/questions"
+            element={
+              <Shell onSignedOut={() => setMe(null)}>
+                <Questions />
               </Shell>
             }
           />

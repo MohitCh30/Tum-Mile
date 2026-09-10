@@ -232,3 +232,99 @@ export const reportProfile = (input: {
 
 export const deleteAccount = () =>
   api<void>("/account", { method: "DELETE", body: { confirm: "delete my account" } });
+
+/* ── the daily question ───────────────────────────────────────── */
+
+export interface QuestionCard {
+  id: string;
+  body: string;
+  options: string[];
+}
+
+export interface NextQuestions {
+  stage: "onboarding" | "daily" | "done";
+  questions?: QuestionCard[];
+  remaining?: number;
+  of?: number;
+  answered?: number;
+  total?: number;
+  nonNegotiablesUsed: number;
+  maxNonNegotiable: number;
+}
+
+export interface MyAnswer {
+  questionId: string;
+  body: string;
+  options: string[];
+  answer: string;
+  acceptable: string[];
+  isNonNegotiable: boolean;
+}
+
+export const getNextQuestions = () => api<NextQuestions>("/questions/next");
+
+export const getMyAnswers = () =>
+  api<{ answers: MyAnswer[]; nonNegotiablesUsed: number; maxNonNegotiable: number }>(
+    "/questions/mine"
+  );
+
+export const answerQuestion = (
+  id: string,
+  body: { answer: string; acceptable?: string[]; isNonNegotiable?: boolean }
+) => api<{ nonNegotiablesUsed: number }>(`/questions/${id}/answer`, { method: "PUT", body });
+
+export const unanswerQuestion = (id: string) =>
+  api<void>(`/questions/${id}/answer`, { method: "DELETE" });
+
+/* ── two-handers ──────────────────────────────────────────────── */
+
+export interface PremiseCard {
+  id: string;
+  title: string;
+  blurb: string;
+  turnsEach: number;
+}
+
+export interface SceneRole {
+  name: string;
+  who: string;
+  wants: string;
+  isRoleA?: boolean;
+}
+
+export interface Scene {
+  id: string;
+  matchId: string;
+  status: "proposed" | "declined" | "playing" | "letters" | "finished" | "abandoned";
+  premise: {
+    id: string;
+    title: string;
+    blurb: string;
+    setting: string;
+    opensWith: string;
+    letterPrompt: string;
+    turnsEach: number;
+  };
+  you: SceneRole;
+  them: SceneRole;
+  proposedByYou: boolean;
+  turnsRemaining: number;
+  yourTurn: boolean;
+  lines: { ordinal: number; body: string; mine: boolean; speaker: string }[];
+  letters: { body: string; mine: boolean; from: string }[];
+  youHaveWritten: boolean;
+}
+
+export const getPremises = () => api<{ premises: PremiseCard[] }>("/scenes/premises");
+export const getScenes = (matchId: string) =>
+  api<{ scenes: Scene[] }>(`/matches/${matchId}/scenes`);
+export const proposeScene = (matchId: string, premiseId: string) =>
+  api<Scene>("/scenes", { method: "POST", body: { matchId, premiseId } });
+export const answerScene = (id: string, accept: boolean) =>
+  api<Scene>(`/scenes/${id}/answer`, { method: "POST", body: { accept } });
+export const sayLine = (id: string, body: string) =>
+  api<Scene>(`/scenes/${id}/turns`, { method: "POST", body: { body } });
+export const writeLetter = (id: string, body: string) =>
+  api<Scene>(`/scenes/${id}/letter`, { method: "POST", body: { body } });
+export const abandonScene = (id: string) =>
+  api<Scene>(`/scenes/${id}/abandon`, { method: "POST", body: {} });
