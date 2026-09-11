@@ -30,7 +30,8 @@ export interface Mail {
  * a failure here would otherwise tell the caller whether an address exists.
  * The body is never logged — it carries the sign-in token.
  */
-export async function sendEmail(mail: Mail): Promise<void> {
+/** True when the provider accepted it. Callers that must retry use this. */
+export async function sendEmail(mail: Mail): Promise<boolean> {
   try {
     await getTransporter().sendMail({
       from: config.EMAIL_FROM,
@@ -38,6 +39,7 @@ export async function sendEmail(mail: Mail): Promise<void> {
       subject: mail.subject,
       text: mail.text,
     });
+    return true;
   } catch (err) {
     // Swallowed deliberately: the caller's response must not change.
     // Logged: the provider's error code and reply, which say WHY (bad
@@ -49,5 +51,6 @@ export async function sendEmail(mail: Mail): Promise<void> {
       `[email] delivery failed for subject: ${mail.subject} ` +
         `(code=${e.code ?? "?"} smtp=${e.responseCode ?? "?"} reply=${reply || "none"})`
     );
+    return false;
   }
 }

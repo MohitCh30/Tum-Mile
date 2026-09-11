@@ -3,6 +3,7 @@ import {
   BrowserRouter,
   Routes,
   Route,
+  Link,
   NavLink,
   useNavigate,
   useSearchParams,
@@ -28,6 +29,7 @@ import { Conversation } from "./screens/Conversation";
 import { Account } from "./screens/Account";
 import { Questions } from "./screens/Questions";
 import { Turnstile } from "./components/Turnstile";
+import { Privacy, Terms } from "./screens/Legal";
 
 /* ── the window everything is read through ────────────────────── */
 
@@ -237,8 +239,18 @@ function SignIn() {
               </p>
             ) : null}
             {error ? <p className="notice notice-bad">{error}</p> : null}
-            <p className="notice" style={{ color: "var(--muted-deep)" }}>
+            <p className="notice" style={{ color: "var(--muted)" }}>
               No password to forget, and nothing to remember. We only ever ask for an address.
+            </p>
+            <p className="meta">
+              asking for a link means you are eighteen or over and agree to{" "}
+              <Link className="linkish meta" to="/terms">
+                the rules
+              </Link>{" "}
+              ·{" "}
+              <Link className="linkish meta" to="/privacy">
+                what we keep
+              </Link>
             </p>
           </form>
         )}
@@ -395,9 +407,25 @@ function App() {
     );
   }
 
+  // Readable signed in or out: someone should be able to see what is kept
+  // about them before they hand over an address.
+  const legal = (page: React.ReactNode) =>
+    me ? (
+      <Shell onSignedOut={() => setMe(null)}>{page}</Shell>
+    ) : (
+      <Scene>
+        <div className="wordmark">Tum Mile</div>
+        <main className="grow" style={{ paddingTop: 30 }}>
+          {page}
+        </main>
+      </Scene>
+    );
+
   return (
     <Routes>
       <Route path="/verify" element={<Verify onSignedIn={refresh} />} />
+      <Route path="/privacy" element={legal(<Privacy />)} />
+      <Route path="/terms" element={legal(<Terms />)} />
       {me ? (
         <>
           <Route

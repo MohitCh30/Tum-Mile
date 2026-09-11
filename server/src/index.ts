@@ -19,6 +19,7 @@ import { closeDb } from "./storage/db.js";
 import { seedQuestions } from "./storage/seed-questions.js";
 import { backfillCanonicalEmails } from "./storage/backfill-emails.js";
 import { warmEmbeddings } from "./services/embeddings.js";
+import { notifyModerator, sendDigests } from "./services/notifier.js";
 
 export function buildApp() {
   const app = Fastify({
@@ -75,9 +76,24 @@ async function start(): Promise<void> {
     void pruneExpiredSessions();
   }, 5 * 60_000);
 
+  // Reports to the moderator, and the opt-in notes. Hourly is plenty for
+  // both; each is idempotent, so a missed or doubled run changes nothing.
+  const tellPeople = async () => {
+    try {
+      await notifyModerator();
+      await sendDigests();
+    } catch (err) {
+      app.log.error(err, "notifier run failed");
+    }
+  };
+  const firstNotify = setTimeout(() => void tellPeople(), 60_000);
+  const notifier = setInterval(() => void tellPeople(), 60 * 60_000);
+
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`${signal} — shutting down`);
     clearInterval(maintenance);
+    clearTimeout(firstNotify);
+    clearInterval(notifier);
     await app.close();
     await closeDb();
     process.exit(0);

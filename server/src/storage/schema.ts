@@ -157,6 +157,14 @@ export const profiles = pgTable(
     locationGeohash: text("location_geohash"),
     lastLocationUpdate: timestamp("last_location_update", { withTimezone: true }),
 
+    // Opt-in, off by default: one short note a day at most, saying only
+    // that something is waiting. Never who, never what.
+    notifyByEmail: boolean("notify_by_email").notNull().default(false),
+    // Things after this moment count as new. Set on opt-in, so switching
+    // it on does not announce the whole backlog at once.
+    notifiedThrough: timestamp("notified_through", { withTimezone: true }),
+    lastNotifiedAt: timestamp("last_notified_at", { withTimezone: true }),
+
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -451,6 +459,9 @@ export const reports = pgTable(
       .notNull()
       .default([]),
     status: text("status").notNull().default("submitted"),
+    // When the moderator was told this report exists. Stored rather than
+    // remembered, so a restart never re-announces or loses one.
+    adminNotifiedAt: timestamp("admin_notified_at", { withTimezone: true }),
     resolution: jsonb("resolution").$type<Record<string, unknown> | null>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

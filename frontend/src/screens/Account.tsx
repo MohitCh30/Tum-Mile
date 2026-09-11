@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
-import { ApiError, deleteAccount, getBlocks, getMe, unblockProfile, type Me } from "../lib/api";
+import { Link } from "react-router-dom";
+import {
+  ApiError,
+  deleteAccount,
+  getBlocks,
+  getMe,
+  getNotifications,
+  setNotifications,
+  unblockProfile,
+  type Me,
+} from "../lib/api";
 
 /**
  * Privacy controls that read as ordinary settings rather than a security
@@ -11,13 +21,29 @@ export function Account({ onGone }: { onGone: () => void }) {
   const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [noteOn, setNoteOn] = useState<boolean | null>(null);
 
   async function load() {
     try {
-      setMe(await getMe());
-      setBlocks((await getBlocks()).blocks);
+      const who = await getMe();
+      setMe(who);
+      // Blocks and the note belong to a profile; before one exists there
+      // is nothing to ask for, and asking only produced a refusal.
+      if (who.hasProfile) {
+        setBlocks((await getBlocks()).blocks);
+        setNoteOn((await getNotifications()).emailWhenWaiting);
+      }
     } catch {
       // A signed-out or profile-less account simply shows less.
+    }
+  }
+
+  async function toggleNote() {
+    if (noteOn === null) return;
+    try {
+      setNoteOn((await setNotifications(!noteOn)).emailWhenWaiting);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
     }
   }
 
@@ -46,6 +72,25 @@ export function Account({ onGone }: { onGone: () => void }) {
         <h2 className="label">your account</h2>
         <p className="prose">{me?.email}</p>
       </section>
+
+      {noteOn !== null ? (
+        <section className="stack" style={{ gap: 12 }}>
+          <h2 className="label">a note when something is waiting</h2>
+          <p className="prose">
+            Nothing here ever notifies you. If you would rather not have to check, we can send one
+            short email, at most once a day, saying only that something is waiting — never who, and
+            never what.
+          </p>
+          <button
+            className={`chip${noteOn ? " chip-on" : ""}`}
+            aria-pressed={noteOn}
+            onClick={toggleNote}
+            style={{ alignSelf: "flex-start" }}
+          >
+            {noteOn ? "On — one note a day at most" : "Off"}
+          </button>
+        </section>
+      ) : null}
 
       <section className="stack" style={{ gap: 12 }}>
         <h2 className="label">people you have blocked</h2>
@@ -123,6 +168,16 @@ export function Account({ onGone }: { onGone: () => void }) {
 
         {error ? <p className="notice notice-bad">{error}</p> : null}
       </section>
+
+      <p className="meta">
+        <Link className="linkish meta" to="/privacy">
+          what we keep
+        </Link>{" "}
+        ·{" "}
+        <Link className="linkish meta" to="/terms">
+          the rules
+        </Link>
+      </p>
     </div>
   );
 }

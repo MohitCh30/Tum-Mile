@@ -242,6 +242,15 @@ export const reportProfile = (input: {
 export const deleteAccount = () =>
   api<void>("/account", { method: "DELETE", body: { confirm: "delete my account" } });
 
+export const getNotifications = () =>
+  api<{ emailWhenWaiting: boolean }>("/account/notifications");
+
+export const setNotifications = (emailWhenWaiting: boolean) =>
+  api<{ emailWhenWaiting: boolean }>("/account/notifications", {
+    method: "PUT",
+    body: { emailWhenWaiting },
+  });
+
 /* ── the daily question ───────────────────────────────────────── */
 
 export interface QuestionCard {

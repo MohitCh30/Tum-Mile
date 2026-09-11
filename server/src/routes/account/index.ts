@@ -16,7 +16,7 @@ import {
   sceneSessions,
   sceneTurns,
 } from "../../storage/db.js";
-import { requireSession, requireVerified } from "../../middleware/auth.js";
+import { requireSession, requireVerified, requireProfile } from "../../middleware/auth.js";
 import { rateLimit } from "../../middleware/rate-limit.js";
 import { invalidateAllSessions } from "../../auth/session.js";
 import { sendEmail } from "../../services/email.js";
@@ -31,6 +31,7 @@ const writeLimit = {
 
 // Typing it out is the confirmation. There is no undo after this.
 const deleteSchema = z.object({ confirm: z.literal("delete my account") });
+const notificationsSchema = z.object({ emailWhenWaiting: z.boolean() }).strict();
 
 export const accountRoutes: FastifyPluginAsync = async (app) => {
   /**
@@ -119,6 +120,7 @@ export const accountRoutes: FastifyPluginAsync = async (app) => {
           .innerJoin(sceneSessions, eq(sceneSessions.id, sceneTurns.sessionId))
           .where(eq(sceneTurns.profileId, me));
         payload.scenesWritten = myScenes;
+        payload.emailWhenSomethingIsWaiting = profile?.notifyByEmail ?? false;
         payload.questionAnswers = myAnswers;
         payload.blocked = myBlocks.map((b) => ({ profileId: b.blockedId, at: b.createdAt }));
         payload.reportsFiled = myReports;
@@ -134,6 +136,41 @@ export const accountRoutes: FastifyPluginAsync = async (app) => {
       reply.header("content-type", "application/json; charset=utf-8");
       reply.header("content-disposition", 'attachment; filename="tum-mile-export.json"');
       return reply.send(payload);
+    }
+  );
+
+  /** The opt-in note. Off unless the person turns it on. */
+  app.get(
+    "/account/notifications",
+    { preHandler: [requireSession, requireProfile] },
+    async (request) => {
+      const [row] = await db
+        .select({ on: profiles.notifyByEmail })
+        .from(profiles)
+        .where(eq(profiles.id, request.user!.profileId!))
+        .limit(1);
+      return { emailWhenWaiting: row?.on ?? false };
+    }
+  );
+
+  app.put(
+    "/account/notifications",
+    { preHandler: [requireSession, requireProfile, rateLimit(writeLimit)] },
+    async (request) => {
+      const { emailWhenWaiting } = notificationsSchema.parse(request.body);
+
+      await db
+        .update(profiles)
+        .set(
+          emailWhenWaiting
+            ? // Only what happens from now on counts: switching it on must
+              // not produce a note about last week.
+              { notifyByEmail: true, notifiedThrough: new Date(), lastNotifiedAt: null }
+            : { notifyByEmail: false }
+        )
+        .where(eq(profiles.id, request.user!.profileId!));
+
+      return { emailWhenWaiting };
     }
   );
 
@@ -204,6 +241,7 @@ export const accountRoutes: FastifyPluginAsync = async (app) => {
               lastLocationUpdate: null,
               // Filtered out of discovery, likes and every profile read.
               moderationStatus: "suspended",
+              notifyByEmail: false,
               updatedAt: new Date(),
             })
             .where(eq(profiles.id, me));

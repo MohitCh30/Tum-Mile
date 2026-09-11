@@ -43,6 +43,13 @@
       "when": 1789128002410,
       "tag": "0005_chilly_runaways",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789129577597,
+      "tag": "0006_robust_maggott",
+      "breakpoints": true
     }
   ]
 }
