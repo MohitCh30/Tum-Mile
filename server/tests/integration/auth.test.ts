@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { buildApp } from "../../src/index.js";
 import { db, authUsers, sessions, closeDb } from "../../src/storage/db.js";
 import { resetRateLimits } from "../../src/middleware/rate-limit.js";
+import { config } from "../../src/config.js";
 
 let app: FastifyInstance;
 
@@ -185,6 +186,28 @@ describe("POST /auth/verify", () => {
     expect(header).toMatch(/tum_mile_session=/);
     expect(header).toMatch(/HttpOnly/i);
     expect(header).toMatch(/SameSite=Lax/i);
+  });
+
+  // Regression: the cookie got the IDLE lifetime and is never re-sent, so
+  // the browser dropped it a fixed day after sign-in even for someone
+  // using the app hourly. It must outlive any session the server allows.
+  it("gives the cookie the session's full possible lifetime", async () => {
+    const asked = await app.inject({
+      method: "POST",
+      url: `${API}/auth/request`,
+      payload: { email: EMAIL },
+    });
+    const res = await app.inject({
+      method: "POST",
+      url: `${API}/auth/verify`,
+      payload: { token: tokenFrom(asked.body) },
+    });
+
+    const raw = res.headers["set-cookie"];
+    const header = Array.isArray(raw) ? raw[0] : String(raw);
+    const maxAge = Number(/Max-Age=(\d+)/i.exec(header)?.[1]);
+    expect(maxAge).toBe(Math.floor(config.SESSION_ABSOLUTE_TIMEOUT_MS / 1000));
+    expect(config.SESSION_IDLE_TIMEOUT_MS).toBeLessThanOrEqual(config.SESSION_ABSOLUTE_TIMEOUT_MS);
   });
 
   it("burns the token — a replay fails", async () => {

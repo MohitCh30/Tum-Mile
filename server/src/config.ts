@@ -28,7 +28,10 @@ const envSchema = z.object({
   // Sessions
   SESSION_COOKIE_NAME: z.string().default("tum_mile_session"),
   SESSION_SECRET: z.string().min(32),
-  SESSION_IDLE_TIMEOUT_MS: z.coerce.number().default(86_400_000), // 1 day
+  // Sliding: every visit pushes it forward, up to the absolute ceiling.
+  // Fourteen days, not one: people check a dating app every few days, and
+  // each forced re-sign-in costs an email against a 300-a-day quota.
+  SESSION_IDLE_TIMEOUT_MS: z.coerce.number().default(1_209_600_000), // 14 days
   SESSION_ABSOLUTE_TIMEOUT_MS: z.coerce.number().default(2_592_000_000), // 30 days
 
   // Email

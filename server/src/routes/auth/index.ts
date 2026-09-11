@@ -98,9 +98,13 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       resourceType: "auth",
     });
 
+    // The cookie lives as long as the session could ever last. The SERVER
+    // enforces the idle expiry on every request; the cookie is set only
+    // here and never refreshed, so tying it to the idle window signed
+    // everyone out a fixed day after sign-in, however active they were.
     reply.setCookie(config.SESSION_COOKIE_NAME, sessionToken, {
       ...COOKIE,
-      maxAge: Math.floor(config.SESSION_IDLE_TIMEOUT_MS / 1000),
+      maxAge: Math.floor(config.SESSION_ABSOLUTE_TIMEOUT_MS / 1000),
     });
 
     return reply.status(200).send({ ok: true });
