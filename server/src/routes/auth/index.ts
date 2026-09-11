@@ -7,8 +7,14 @@ import { rateLimit, enforceSubjectLimit } from "../../middleware/rate-limit.js";
 import { logAudit } from "../../services/audit.js";
 import { config, isProd } from "../../config.js";
 import { canonicalEmail } from "../../lib/email.js";
+import { verifyTurnstile, turnstileEnabled } from "../../services/turnstile.js";
+import { clientIp } from "../../lib/client-ip.js";
 
-const requestSchema = z.object({ email: z.string().email().max(254) });
+const requestSchema = z.object({
+  email: z.string().email().max(254),
+  // Present only when Turnstile is configured on the client.
+  turnstileToken: z.string().max(4096).optional(),
+});
 const verifySchema = z.object({ token: z.string().min(20).max(200) });
 
 /** Loose: one address can sit behind a whole campus. */
@@ -44,7 +50,13 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
    * caller learn which addresses exist by comparing the two responses.
    */
   app.post("/auth/request", { preHandler: [rateLimit(linkLimitPerIp)] }, async (request, reply) => {
-    const { email } = requestSchema.parse(request.body);
+    const { email, turnstileToken } = requestSchema.parse(request.body);
+
+    // Checked before anything is written or sent, and answered with the
+    // same body as everything else — a distinct error would tell a script
+    // exactly which of its requests was refused and why.
+    const human = await verifyTurnstile(turnstileToken, clientIp(request));
+    if (!human) return reply.status(200).send({ ok: true });
 
     // Keyed on the canonical inbox, so `you+1@`, `you+2@` and `y.o.u@`
     // all draw from one allowance. Applied after the loose per-IP tier.
@@ -110,6 +122,11 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     reply.clearCookie(config.SESSION_COOKIE_NAME, COOKIE);
     return reply.status(200).send({ ok: true });
   });
+
+  /** What the sign-in form needs to render. No secrets. */
+  app.get("/auth/config", async () => ({
+    turnstileSiteKey: turnstileEnabled() ? config.TURNSTILE_SITE_KEY : null,
+  }));
 
   /** Who am I. The frontend's only source of signed-in state. */
   app.get("/me", { preHandler: [requireSession] }, async (request) => {

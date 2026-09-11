@@ -101,16 +101,18 @@ describe("two-tier throttling", () => {
     expect(codes.filter((c) => c === 429).length).toBeGreaterThan(0);
   });
 
-  // The reason for the loose tier: a college wifi or an Indian mobile
-  // network puts hundreds of real people behind one address. Twenty
-  // classmates trying it in one hour must not lock out the hostel.
-  it("lets many different people through one shared address", async () => {
+  // The per-IP tier is sized for a day-scholar campus: a lab of
+  // classmates on one connection gets through, and a script working a
+  // list from one address is cut off right after them.
+  it("lets a lab of classmates through one address, then stops", async () => {
+    const cap = config.RATE_LIMIT_MAGIC_LINK_PER_IP;
     const codes: number[] = [];
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < cap + 3; i++) {
       codes.push((await ask(`student${i}@msit.edu.in`)).statusCode);
     }
 
-    expect(codes.every((c) => c === 200)).toBe(true);
-    expect(await db.select().from(authUsers)).toHaveLength(20);
+    expect(codes.slice(0, cap).every((c) => c === 200)).toBe(true);
+    expect(codes.slice(cap).every((c) => c === 429)).toBe(true);
+    expect(await db.select().from(authUsers)).toHaveLength(cap);
   });
 });

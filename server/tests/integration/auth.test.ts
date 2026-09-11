@@ -135,9 +135,9 @@ describe("POST /auth/request", () => {
     expect(codes).toContain(429);
   });
 
-  // Rotating to genuinely DIFFERENT inboxes is allowed up to the loose
-  // per-IP tier, deliberately: a college wifi puts a whole hostel behind
-  // one address, and a strict per-IP cap would lock all of them out.
+  // Rotating to genuinely DIFFERENT inboxes is allowed up to the per-IP
+  // tier, deliberately: a lab full of classmates shares one address, and
+  // a per-inbox-sized cap on the IP would lock most of them out.
   //
   // The trade is real and stated: one address may now probe up to
   // RATE_LIMIT_MAGIC_LINK_PER_IP inboxes an hour rather than three. It
@@ -154,6 +154,15 @@ describe("POST /auth/request", () => {
       codes.push(res.statusCode);
     }
     expect(codes.every((c) => c === 200)).toBe(true);
+  });
+});
+
+describe("GET /auth/config", () => {
+  // Unconfigured, the check is off and the client must render nothing.
+  it("offers no site key when Turnstile is not set up", async () => {
+    const res = await app.inject({ method: "GET", url: `${API}/auth/config` });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ turnstileSiteKey: null });
   });
 });
 

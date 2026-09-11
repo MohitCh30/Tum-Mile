@@ -9,6 +9,7 @@ import {
 } from "react-router-dom";
 import {
   ApiError,
+  getAuthConfig,
   getMatches,
   getMe,
   getPrompts,
@@ -25,6 +26,7 @@ import { ProfileRead } from "./screens/ProfileRead";
 import { Conversation } from "./screens/Conversation";
 import { Account } from "./screens/Account";
 import { Questions } from "./screens/Questions";
+import { Turnstile } from "./components/Turnstile";
 
 /* ── the window everything is read through ────────────────────── */
 
@@ -91,13 +93,26 @@ function SignIn() {
   const [devUrl, setDevUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [siteKey, setSiteKey] = useState<string | null>(null);
+  const [humanToken, setHumanToken] = useState<string | null>(null);
+  const [checkFailed, setCheckFailed] = useState(false);
+
+  useEffect(() => {
+    // No site key means the check is off; the form works without it.
+    getAuthConfig()
+      .then((c) => setSiteKey(c.turnstileSiteKey))
+      .catch(() => setSiteKey(null));
+  }, []);
+
+  const onCheckFailed = useCallback(() => setCheckFailed(true), []);
+  const waitingOnCheck = siteKey !== null && humanToken === null;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      const res = await requestLink(email);
+      const res = await requestLink(email, humanToken ?? undefined);
       setSent(true);
       setDevUrl(res.devUrl ?? null);
     } catch (err) {
@@ -150,9 +165,19 @@ function SignIn() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            <button className="button" type="submit" disabled={busy || email.length === 0}>
+            <Turnstile siteKey={siteKey} onToken={setHumanToken} onFailed={onCheckFailed} />
+            <button
+              className="button"
+              type="submit"
+              disabled={busy || email.length === 0 || waitingOnCheck}
+            >
               {busy ? "Sending…" : "Send me a link"}
             </button>
+            {checkFailed ? (
+              <p className="notice notice-bad">
+                The check that keeps scripts out could not load. Reload the page and try again.
+              </p>
+            ) : null}
             {error ? <p className="notice notice-bad">{error}</p> : null}
             <p className="notice" style={{ color: "var(--muted-deep)" }}>
               No password to forget, and nothing to remember. We only ever ask for an address.

@@ -45,6 +45,12 @@ const envSchema = z.object({
   // The single pre-provisioned moderator identity.
   ADMIN_EMAIL: z.string().email().optional(),
 
+  // Cloudflare Turnstile. Unset means the check is skipped entirely, so
+  // the app runs locally and without a Cloudflare dependency.
+  TURNSTILE_SECRET: z.string().default(""),
+  // Public by design — it is rendered into the page.
+  TURNSTILE_SITE_KEY: z.string().default(""),
+
   // Behind a Cloudflare tunnel, cloudflared connects over loopback and
   // every visitor looks like 127.0.0.1. Switch this on there so the real
   // address is read from CF-Connecting-IP. Leave it OFF when the server
@@ -62,13 +68,17 @@ const envSchema = z.object({
   INBOUND_EXPIRY_DAYS: z.coerce.number().default(5),
 
   // Rate limits
-  // Two tiers. The per-ADDRESS limit is what stops one person asking for
-  // twenty links; the per-IP one stops a machine working through a list.
-  // The IP tier is deliberately loose because a college wifi or an Indian
-  // mobile network puts hundreds of real people behind one address.
+  // Two tiers. The per-ADDRESS limit stops one person asking for twenty
+  // links; the per-IP one stops a machine working through a list.
+  //
+  // The IP tier is sized for a DAY-SCHOLAR campus: people arrive from
+  // their own home connections and phones, not one hostel NAT, so it does
+  // not need hostel-sized slack. Twelve an hour absorbs a lab full of
+  // classmates trying it together and still cuts off a script quickly.
+  // Raise it only if real users start hitting it.
   RATE_LIMIT_MAGIC_LINK: z.coerce.number().default(3),
   RATE_LIMIT_MAGIC_LINK_WINDOW_MS: z.coerce.number().default(3_600_000),
-  RATE_LIMIT_MAGIC_LINK_PER_IP: z.coerce.number().default(40),
+  RATE_LIMIT_MAGIC_LINK_PER_IP: z.coerce.number().default(12),
   RATE_LIMIT_VERIFY: z.coerce.number().default(10),
   RATE_LIMIT_VERIFY_WINDOW_MS: z.coerce.number().default(900_000),
   RATE_LIMIT_DISCOVERY: z.coerce.number().default(60),

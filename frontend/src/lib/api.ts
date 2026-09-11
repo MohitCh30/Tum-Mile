@@ -50,8 +50,14 @@ export interface Me {
   hasProfile: boolean;
 }
 
-export const requestLink = (email: string) =>
-  api<{ ok: true; devUrl?: string }>("/auth/request", { method: "POST", body: { email } });
+export const getAuthConfig = () =>
+  api<{ turnstileSiteKey: string | null }>("/auth/config");
+
+export const requestLink = (email: string, turnstileToken?: string) =>
+  api<{ ok: true; devUrl?: string }>("/auth/request", {
+    method: "POST",
+    body: { email, turnstileToken },
+  });
 
 export const verifyLink = (token: string) =>
   api<{ ok: true }>("/auth/verify", { method: "POST", body: { token } });
