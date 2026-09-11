@@ -439,7 +439,8 @@ export const reports = pgTable(
     // block scrubs the conversation — so evidence is captured at the
     // moment of reporting or it is gone. Nothing else may read this.
     evidence: jsonb("evidence")
-      .$type<{ messageId: string; body: string; at: string }[]>()
+      // `source` is absent on reports filed before scenes were captured.
+      .$type<{ messageId: string; body: string; at: string; source?: "message" | "scene" }[]>()
       .notNull()
       .default([]),
     status: text("status").notNull().default("submitted"),

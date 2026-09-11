@@ -13,6 +13,8 @@ import {
   blocks,
   reports,
   questionAnswers,
+  sceneSessions,
+  sceneTurns,
 } from "../../storage/db.js";
 import { requireSession, requireVerified } from "../../middleware/auth.js";
 import { rateLimit } from "../../middleware/rate-limit.js";
@@ -104,6 +106,19 @@ export const accountRoutes: FastifyPluginAsync = async (app) => {
           body: m.body,
           at: m.createdAt,
         }));
+        // Your own lines and letters. The other player's are their words.
+        const myScenes = await db
+          .select({
+            sceneId: sceneTurns.sessionId,
+            premiseId: sceneSessions.premiseId,
+            kind: sceneTurns.kind,
+            body: sceneTurns.body,
+            at: sceneTurns.createdAt,
+          })
+          .from(sceneTurns)
+          .innerJoin(sceneSessions, eq(sceneSessions.id, sceneTurns.sessionId))
+          .where(eq(sceneTurns.profileId, me));
+        payload.scenesWritten = myScenes;
         payload.questionAnswers = myAnswers;
         payload.blocked = myBlocks.map((b) => ({ profileId: b.blockedId, at: b.createdAt }));
         payload.reportsFiled = myReports;
@@ -158,6 +173,8 @@ export const accountRoutes: FastifyPluginAsync = async (app) => {
 
           await tx.delete(messageReactions).where(eq(messageReactions.profileId, me));
           await tx.delete(messages).where(eq(messages.senderProfileId, me));
+          // Scene lines and letters are their writing too, and go the same way.
+          await tx.delete(sceneTurns).where(eq(sceneTurns.profileId, me));
           await tx.delete(likes).where(or(eq(likes.likerProfileId, me), eq(likes.likedProfileId, me)));
           await tx.delete(passes).where(eq(passes.passerProfileId, me));
           await tx.delete(blocks).where(or(eq(blocks.blockerId, me), eq(blocks.blockedId, me)));

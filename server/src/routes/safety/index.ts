@@ -10,6 +10,8 @@ import {
   messages,
   reports,
   moderationCases,
+  sceneSessions,
+  sceneTurns,
 } from "../../storage/db.js";
 import { requireSession, requireProfile } from "../../middleware/auth.js";
 import { rateLimit } from "../../middleware/rate-limit.js";
@@ -87,6 +89,9 @@ export const safetyRoutes: FastifyPluginAsync = async (app) => {
 
         for (const match of pair) {
           await tx.delete(messages).where(eq(messages.matchId, match.id));
+          // Scenes are part of the conversation: lines and letters go with
+          // it, for both people. Turns cascade from the session.
+          await tx.delete(sceneSessions).where(eq(sceneSessions.matchId, match.id));
           await tx
             .update(matches)
             .set({ unmatchedAt: new Date(), unmatchedBy: me })
@@ -184,7 +189,12 @@ export const safetyRoutes: FastifyPluginAsync = async (app) => {
         .limit(1);
       if (!reported) throw new Error("NOT_FOUND");
 
-      let evidence: { messageId: string; body: string; at: string }[] = [];
+      let evidence: {
+        messageId: string;
+        body: string;
+        at: string;
+        source: "message" | "scene";
+      }[] = [];
 
       if (input.matchId) {
         const [match] = await db
@@ -211,11 +221,33 @@ export const safetyRoutes: FastifyPluginAsync = async (app) => {
           .orderBy(desc(messages.createdAt))
           .limit(20);
 
-        evidence = theirs.map((m) => ({
-          messageId: m.id,
-          body: m.body,
-          at: m.createdAt.toISOString(),
-        }));
+        // A scene is a second place to say something to someone, so it is
+        // a second place to harass them. Same rule: only the reported
+        // party's own lines and letters.
+        const theirSceneTurns = await db
+          .select({ id: sceneTurns.id, body: sceneTurns.body, createdAt: sceneTurns.createdAt })
+          .from(sceneTurns)
+          .innerJoin(sceneSessions, eq(sceneSessions.id, sceneTurns.sessionId))
+          .where(
+            and(eq(sceneSessions.matchId, match.id), eq(sceneTurns.profileId, reported.id))
+          )
+          .orderBy(desc(sceneTurns.createdAt))
+          .limit(20);
+
+        evidence = [
+          ...theirs.map((m) => ({
+            messageId: m.id,
+            body: m.body,
+            at: m.createdAt.toISOString(),
+            source: "message" as const,
+          })),
+          ...theirSceneTurns.map((t) => ({
+            messageId: t.id,
+            body: t.body,
+            at: t.createdAt.toISOString(),
+            source: "scene" as const,
+          })),
+        ];
       }
 
       const [report] = await db

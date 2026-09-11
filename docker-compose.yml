@@ -5,7 +5,7 @@ services:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     environment:
       POSTGRES_USER: tummile
       POSTGRES_PASSWORD: REPLACE_ME
@@ -22,8 +22,8 @@ services:
     image: axllent/mailpit:latest
     restart: unless-stopped
     ports:
-      - "1025:1025"   # SMTP — matches SMTP_PORT default in server/src/config.ts
-      - "8025:8025"   # web inbox
+      - "127.0.0.1:1025:1025"   # SMTP — matches SMTP_PORT default in server/src/config.ts
+      - "127.0.0.1:8025:8025"   # web inbox
     environment:
       MP_MAX_MESSAGES: 500
       MP_SMTP_AUTH_ACCEPT_ANY: 1
