@@ -13,7 +13,9 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": "http://localhost:3007",
+      // 3007 is the API. Overridable so a second local copy can run beside
+      // the production service on this machine without talking to it.
+      "/api": process.env.TUMMILE_API ?? "http://localhost:3007",
     },
   },
   // Production, behind the Cloudflare tunnel. cloudflared sends /api/*

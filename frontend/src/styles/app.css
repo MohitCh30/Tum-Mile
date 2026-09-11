@@ -124,12 +124,16 @@ body {
   color: var(--text-name);
 }
 
+/* Supporting text is dimmer than what people wrote, but never below
+   4.5:1 against the ground: --muted is the dimmest value that passes.
+   --muted-deep (3.2:1) and --muted-deepest (2.9:1) are for rules and
+   placeholders, not for words someone has to read. */
 .meta {
   font-family: var(--face-meta);
   font-weight: 300;
   font-size: var(--size-meta);
   letter-spacing: var(--track-meta);
-  color: var(--muted-deepest);
+  color: var(--muted);
 }
 
 .label {
@@ -137,7 +141,7 @@ body {
   font-weight: 300;
   font-size: var(--size-meta);
   letter-spacing: var(--track-label);
-  color: var(--muted-deep);
+  color: var(--muted);
 }
 
 /* Amber is reserved for what a person wrote. */
@@ -315,7 +319,7 @@ a:hover { color: var(--lamp); }
   font-weight: 300;
   font-size: 12px;
   letter-spacing: var(--track-meta);
-  color: var(--muted-deepest);
+  color: var(--muted);
   text-decoration: none;
 }
 
@@ -327,7 +331,7 @@ a:hover { color: var(--lamp); }
   border: 0;
   padding: 0;
   cursor: pointer;
-  color: var(--muted-deepest);
+  color: var(--muted);
   font: inherit;
 }
 
@@ -436,4 +440,35 @@ main { padding-bottom: 60px; }
   font-weight: 300;
   font-size: 12px;
   letter-spacing: var(--track-meta);
+}
+
+/* Six digits, spaced so they can be checked against the email at a glance. */
+.field-code {
+  font-family: var(--face-meta);
+  font-size: 22px;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+
+/* ── wider screens ────────────────────────────────────────────────
+   The phone column, centred on a monitor, read as a mobile app in a
+   browser. Wider, and the chrome grows with it — but long writing keeps
+   a readable measure, because a letter 110 characters wide is a chore. */
+@media (min-width: 900px) {
+  :root {
+    --gutter: 44px;
+    --size-meta: 12.5px;
+    --size-body: 15.5px;
+    --size-answer: 16.5px;
+    --size-title: 16.5px;
+  }
+
+  .content { max-width: 760px; }
+
+  .wordmark { font-size: 16px; }
+  .navlink, .navlink.linkish { font-size: 14px; }
+  .nav { gap: 28px; }
+  .notice { font-size: 14px; }
+
+  .prose, .answer, .form-poem, .form-letter, .form-list, .notice { max-width: 66ch; }
 }

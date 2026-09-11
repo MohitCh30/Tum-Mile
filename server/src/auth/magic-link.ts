@@ -1,16 +1,28 @@
-import { and, eq, gt } from "drizzle-orm";
+import { randomInt } from "node:crypto";
+import { and, eq, gt, isNotNull, lt, sql } from "drizzle-orm";
 import { db, authUsers } from "../storage/db.js";
 import { newToken, hashToken } from "../lib/tokens.js";
 import { sendEmail } from "../services/email.js";
 import { config } from "../config.js";
-import { normaliseEmail } from "../lib/email.js";
+import { normaliseEmail, canonicalEmail } from "../lib/email.js";
 
 export interface LinkRequestResult {
   /** Always true. Never reveals whether the address is known. */
   ok: true;
   /** Development only, when SMTP has no credentials — never set in production. */
   devUrl?: string;
+  devCode?: string;
 }
+
+/** Wrong guesses allowed against one issued code before it is retired. */
+export const MAX_CODE_ATTEMPTS = 5;
+
+function newCode(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+// Prefixed so a code's hash can never collide with a link token's.
+const hashCode = (code: string) => hashToken(`code:${code}`);
 
 /**
  * Send a sign-in link. Register and sign-in are the same operation: an
@@ -28,6 +40,7 @@ export async function requestMagicLink(rawEmail: string): Promise<LinkRequestRes
 
   const email = normalised.address;
   const token = newToken();
+  const code = newCode();
   const expiresAt = new Date(Date.now() + config.MAGIC_LINK_TTL_MS);
 
   // Looked up by the CANONICAL key, so an alias of an existing inbox
@@ -53,6 +66,9 @@ export async function requestMagicLink(rawEmail: string): Promise<LinkRequestRes
       .set({
         verificationTokenHash: hashToken(token),
         verificationTokenExpiresAt: expiresAt,
+        // A new code starts with a clean count; the old one is gone.
+        verificationCodeHash: hashCode(code),
+        verificationCodeAttempts: 0,
         updatedAt: new Date(),
       })
       .where(eq(authUsers.id, existing.id));
@@ -62,6 +78,7 @@ export async function requestMagicLink(rawEmail: string): Promise<LinkRequestRes
       emailCanonical: normalised.canonical,
       verificationTokenHash: hashToken(token),
       verificationTokenExpiresAt: expiresAt,
+      verificationCodeHash: hashCode(code),
     });
   }
 
@@ -74,12 +91,15 @@ export async function requestMagicLink(rawEmail: string): Promise<LinkRequestRes
     to: email,
     subject: "Your link to Tum Mile",
     text: [
-      "Someone asked for a link to sign in to Tum Mile with this address.",
+      "Someone asked to sign in to Tum Mile with this address.",
       "",
+      "Open this link on the device you are signing in on:",
       url.toString(),
       "",
-      "It works once, and only for the next fifteen minutes.",
-      "If this was not you, nothing has happened — ignore this and the link expires.",
+      `Or type this code where you asked for it: ${code}`,
+      "",
+      "Either works once, and only for the next fifteen minutes.",
+      "If this was not you, nothing has happened — ignore this and both expire.",
     ].join("\n"),
   });
 
@@ -87,7 +107,7 @@ export async function requestMagicLink(rawEmail: string): Promise<LinkRequestRes
   // back so the flow is testable without opening the inbox. Guarded twice:
   // unconfigured SMTP *and* not production.
   if (!smtpConfigured && config.NODE_ENV !== "production") {
-    return { ok: true, devUrl: url.toString() };
+    return { ok: true, devUrl: url.toString(), devCode: code };
   }
 
   return { ok: true };
@@ -117,6 +137,9 @@ export async function verifyMagicLink(token: string): Promise<VerifyResult> {
       emailVerified: true,
       verificationTokenHash: null,
       verificationTokenExpiresAt: null,
+      // The link and the code are one sign-in; spending one spends both.
+      verificationCodeHash: null,
+      verificationCodeAttempts: 0,
       updatedAt: new Date(),
     })
     .where(
@@ -131,4 +154,54 @@ export async function verifyMagicLink(token: string): Promise<VerifyResult> {
   if (!claimed) return { ok: false };
 
   return { ok: true, authUserId: claimed.id };
+}
+
+/**
+ * Consume a six-digit code, exactly once, for the inbox it was sent to.
+ *
+ * For the person whose mail app opens the link somewhere else — Gmail's
+ * in-app browser signs in a browser they are not using. They type the code
+ * into the tab they asked from instead.
+ *
+ * Same single conditional UPDATE as the link, so two racing submissions of
+ * a right code produce one session. A code is only 20 bits, which is why
+ * it is scoped to one inbox and retired after MAX_CODE_ATTEMPTS wrong
+ * guesses; with three codes an hour per inbox, that is fifteen guesses at
+ * a million.
+ */
+export async function verifyCode(rawEmail: string, code: string): Promise<VerifyResult> {
+  const canonical = canonicalEmail(rawEmail);
+  if (!canonical) return { ok: false };
+
+  const [claimed] = await db
+    .update(authUsers)
+    .set({
+      emailVerified: true,
+      verificationTokenHash: null,
+      verificationTokenExpiresAt: null,
+      verificationCodeHash: null,
+      verificationCodeAttempts: 0,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(authUsers.emailCanonical, canonical),
+        eq(authUsers.verificationCodeHash, hashCode(code)),
+        gt(authUsers.verificationTokenExpiresAt, new Date()),
+        lt(authUsers.verificationCodeAttempts, MAX_CODE_ATTEMPTS),
+        eq(authUsers.isDeleted, false)
+      )
+    )
+    .returning({ id: authUsers.id });
+
+  if (claimed) return { ok: true, authUserId: claimed.id };
+
+  // Count the miss against whatever code this inbox holds. If there is no
+  // account or no code, nothing is written, and the answer is the same.
+  await db
+    .update(authUsers)
+    .set({ verificationCodeAttempts: sql`${authUsers.verificationCodeAttempts} + 1` })
+    .where(and(eq(authUsers.emailCanonical, canonical), isNotNull(authUsers.verificationCodeHash)));
+
+  return { ok: false };
 }

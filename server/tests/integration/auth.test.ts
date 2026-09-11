@@ -267,6 +267,83 @@ describe("POST /auth/verify", () => {
   });
 });
 
+describe("POST /auth/verify-code", () => {
+  const ask = (email = EMAIL) =>
+    app.inject({ method: "POST", url: `${API}/auth/request`, payload: { email } });
+  const codeFrom = (body: string) => (JSON.parse(body) as { devCode: string }).devCode;
+  const tryCode = (code: string, email = EMAIL) =>
+    app.inject({ method: "POST", url: `${API}/auth/verify-code`, payload: { email, code } });
+
+  it("signs you in, exactly once", async () => {
+    const code = codeFrom((await ask()).body);
+    expect(code).toMatch(/^\d{6}$/);
+
+    const first = await tryCode(code);
+    expect(first.statusCode).toBe(200);
+    expect(String(first.headers["set-cookie"])).toMatch(/tum_mile_session=/);
+
+    expect((await tryCode(code)).statusCode).toBe(401);
+  });
+
+  // A code is only 20 bits. It must be useless for any inbox but its own.
+  it("works only for the inbox it was sent to", async () => {
+    const code = codeFrom((await ask()).body);
+    resetRateLimits();
+    await ask("someone-else@test.local");
+
+    expect((await tryCode(code, "someone-else@test.local")).statusCode).toBe(401);
+    expect((await tryCode(code, "never-asked@test.local")).statusCode).toBe(401);
+    // Still good for its own inbox: a miss elsewhere does not burn it.
+    expect((await tryCode(code)).statusCode).toBe(200);
+  });
+
+  it("retires the code after five wrong guesses, even the right one after", async () => {
+    const code = codeFrom((await ask()).body);
+    const wrong = code === "000000" ? "111111" : "000000";
+
+    for (let i = 0; i < 5; i++) {
+      expect((await tryCode(wrong)).statusCode).toBe(401);
+    }
+    expect((await tryCode(code)).statusCode).toBe(401);
+  });
+
+  it("is answered identically for a wrong code and an unknown inbox", async () => {
+    await ask();
+    const wrong = await tryCode("123456");
+    const unknown = await tryCode("123456", "nobody@test.local");
+    expect(wrong.statusCode).toBe(unknown.statusCode);
+    expect(wrong.body).toBe(unknown.body);
+  });
+
+  // The link and the code are one sign-in: spending either spends both.
+  it("dies when the link from the same email is used", async () => {
+    const asked = await ask();
+    const code = codeFrom(asked.body);
+    await app.inject({
+      method: "POST",
+      url: `${API}/auth/verify`,
+      payload: { token: tokenFrom(asked.body) },
+    });
+
+    expect((await tryCode(code)).statusCode).toBe(401);
+  });
+
+  it("mints one session from two racing submissions", async () => {
+    const code = codeFrom((await ask()).body);
+    const results = await Promise.all(Array.from({ length: 4 }, () => tryCode(code)));
+
+    expect(results.filter((r) => r.statusCode === 200)).toHaveLength(1);
+    expect(await db.select().from(sessions)).toHaveLength(1);
+  });
+
+  it("refuses anything that is not six digits", async () => {
+    await ask();
+    for (const bad of ["12345", "1234567", "abcdef", "12 456"]) {
+      expect((await tryCode(bad)).statusCode).toBe(400);
+    }
+  });
+});
+
 describe("session lifecycle", () => {
   it("GET /me needs a session", async () => {
     const res = await app.inject({ method: "GET", url: `${API}/me` });

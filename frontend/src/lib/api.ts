@@ -54,13 +54,16 @@ export const getAuthConfig = () =>
   api<{ turnstileSiteKey: string | null }>("/auth/config");
 
 export const requestLink = (email: string, turnstileToken?: string) =>
-  api<{ ok: true; devUrl?: string }>("/auth/request", {
+  api<{ ok: true; devUrl?: string; devCode?: string }>("/auth/request", {
     method: "POST",
     body: { email, turnstileToken },
   });
 
 export const verifyLink = (token: string) =>
   api<{ ok: true }>("/auth/verify", { method: "POST", body: { token } });
+
+export const verifyCode = (email: string, code: string) =>
+  api<{ ok: true }>("/auth/verify-code", { method: "POST", body: { email, code } });
 
 export const logout = () => api<{ ok: true }>("/auth/logout", { method: "POST" });
 

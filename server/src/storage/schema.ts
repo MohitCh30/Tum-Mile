@@ -39,6 +39,13 @@ export const authUsers = pgTable(
     verificationTokenExpiresAt: timestamp("verification_token_expires_at", {
       withTimezone: true,
     }),
+    // The six-digit code sent alongside the link, for someone whose mail
+    // app opens links in a different browser. Shares the link's expiry.
+    // Only the HMAC is stored, and wrong guesses are counted: a million
+    // possibilities is plenty for five tries, and nothing like enough for
+    // unlimited ones.
+    verificationCodeHash: text("verification_code_hash"),
+    verificationCodeAttempts: integer("verification_code_attempts").notNull().default(0),
     isDeleted: boolean("is_deleted").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

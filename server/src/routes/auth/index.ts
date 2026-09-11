@@ -1,6 +1,6 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { requestMagicLink, verifyMagicLink } from "../../auth/magic-link.js";
+import { requestMagicLink, verifyMagicLink, verifyCode } from "../../auth/magic-link.js";
 import { createSession, invalidateSession } from "../../auth/session.js";
 import { requireSession } from "../../middleware/auth.js";
 import { rateLimit, enforceSubjectLimit } from "../../middleware/rate-limit.js";
@@ -16,6 +16,10 @@ const requestSchema = z.object({
   turnstileToken: z.string().max(4096).optional(),
 });
 const verifySchema = z.object({ token: z.string().min(20).max(200) });
+const verifyCodeSchema = z.object({
+  email: z.string().email().max(254),
+  code: z.string().regex(/^\d{6}$/),
+});
 
 /** Loose: one address can sit behind a whole campus. */
 const linkLimitPerIp = {
@@ -43,6 +47,29 @@ const COOKIE = {
   path: "/",
 };
 
+/** The one way a session begins, whether from a link or a code. */
+async function startSession(request: FastifyRequest, reply: FastifyReply, authUserId: string) {
+  const sessionToken = await createSession(authUserId, request.headers["user-agent"]);
+
+  await logAudit({
+    actorType: "user",
+    actorId: authUserId,
+    action: "session.created",
+    resourceType: "auth",
+  });
+
+  // The cookie lives as long as the session could ever last. The SERVER
+  // enforces the idle expiry on every request; the cookie is set only
+  // here and never refreshed, so tying it to the idle window signed
+  // everyone out a fixed day after sign-in, however active they were.
+  reply.setCookie(config.SESSION_COOKIE_NAME, sessionToken, {
+    ...COOKIE,
+    maxAge: Math.floor(config.SESSION_ABSOLUTE_TIMEOUT_MS / 1000),
+  });
+
+  return reply.status(200).send({ ok: true });
+}
+
 export const authRoutes: FastifyPluginAsync = async (app) => {
   /**
    * POST /auth/request — one endpoint for both signing up and signing in.
@@ -67,6 +94,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
     const body: Record<string, unknown> = { ok: true };
     if (result.devUrl) body.devUrl = result.devUrl;
+    if (result.devCode) body.devCode = result.devCode;
 
     // Same shape and same timing-insensitive path whether or not the
     // address is known.
@@ -86,28 +114,23 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       throw new Error("INVALID_SESSION");
     }
 
-    const sessionToken = await createSession(
-      result.authUserId,
-      request.headers["user-agent"]
-    );
+    return startSession(request, reply, result.authUserId);
+  });
 
-    await logAudit({
-      actorType: "user",
-      actorId: result.authUserId,
-      action: "session.created",
-      resourceType: "auth",
-    });
+  /**
+   * POST /auth/verify-code — the six-digit code from the same email, typed
+   * into the tab the person asked from. A wrong code, a wrong inbox and an
+   * unknown inbox all get the same refusal.
+   */
+  app.post("/auth/verify-code", { preHandler: [rateLimit(verifyLimit)] }, async (request, reply) => {
+    const { email, code } = verifyCodeSchema.parse(request.body);
+    const result = await verifyCode(email, code);
 
-    // The cookie lives as long as the session could ever last. The SERVER
-    // enforces the idle expiry on every request; the cookie is set only
-    // here and never refreshed, so tying it to the idle window signed
-    // everyone out a fixed day after sign-in, however active they were.
-    reply.setCookie(config.SESSION_COOKIE_NAME, sessionToken, {
-      ...COOKIE,
-      maxAge: Math.floor(config.SESSION_ABSOLUTE_TIMEOUT_MS / 1000),
-    });
+    if (!result.ok || !result.authUserId) {
+      throw new Error("INVALID_SESSION");
+    }
 
-    return reply.status(200).send({ ok: true });
+    return startSession(request, reply, result.authUserId);
   });
 
   app.post("/auth/logout", { preHandler: [requireSession] }, async (request, reply) => {

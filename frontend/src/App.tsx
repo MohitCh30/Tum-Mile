@@ -15,6 +15,7 @@ import {
   getPrompts,
   logout,
   requestLink,
+  verifyCode,
   verifyLink,
   type MatchSummary,
   type Me,
@@ -96,6 +97,26 @@ function SignIn() {
   const [siteKey, setSiteKey] = useState<string | null>(null);
   const [humanToken, setHumanToken] = useState<string | null>(null);
   const [checkFailed, setCheckFailed] = useState(false);
+  const [devCode, setDevCode] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  // The code is for the person whose mail app opens links somewhere else.
+  // Typed here, the session lands in THIS tab.
+  async function submitCode(e: React.FormEvent) {
+    e.preventDefault();
+    setChecking(true);
+    setCodeError(null);
+    try {
+      await verifyCode(email, code);
+      // A full load, so the app starts from GET /me like any other visit.
+      window.location.assign("/");
+    } catch {
+      setCodeError("That code did not work. It may have expired, or been typed wrong.");
+      setChecking(false);
+    }
+  }
 
   useEffect(() => {
     // No site key means the check is off; the form works without it.
@@ -115,6 +136,7 @@ function SignIn() {
       const res = await requestLink(email, humanToken ?? undefined);
       setSent(true);
       setDevUrl(res.devUrl ?? null);
+      setDevCode(res.devCode ?? null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");
     } finally {
@@ -135,14 +157,50 @@ function SignIn() {
         </div>
 
         {sent ? (
-          <div className="stack">
+          <div className="stack" style={{ gap: 26 }}>
             <p className="notice">
-              If that address can be written to, a link is on its way. It works once, and only for
-              the next fifteen minutes.
+              If that address can be written to, an email is on its way with a link and a
+              six-digit code. Either works once, for the next fifteen minutes.
             </p>
+
+            <form className="stack" onSubmit={submitCode}>
+              <label className="label" htmlFor="code">
+                the code, if the link opens somewhere else
+              </label>
+              <input
+                id="code"
+                className="field field-code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                placeholder="000000"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              />
+              <button className="button" type="submit" disabled={checking || code.length !== 6}>
+                {checking ? "Checking…" : "Sign in"}
+              </button>
+              {codeError ? <p className="notice notice-bad">{codeError}</p> : null}
+            </form>
+
+            <button
+              className="linkish meta"
+              type="button"
+              style={{ alignSelf: "flex-start" }}
+              onClick={() => {
+                setSent(false);
+                setCode("");
+                setCodeError(null);
+              }}
+            >
+              use a different address
+            </button>
+
             {devUrl ? (
               <p className="notice">
-                Local development — <a href={devUrl}>open the link</a>, or read it in the{" "}
+                Local development — <a href={devUrl}>open the link</a>
+                {devCode ? <>, or type {devCode}</> : null}, or read it in the{" "}
                 <a href="http://localhost:8025" target="_blank" rel="noreferrer">
                   Mailpit inbox
                 </a>
