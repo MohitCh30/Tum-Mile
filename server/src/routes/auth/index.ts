@@ -162,6 +162,9 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       email: user.email,
       emailVerified: user.emailVerified,
       hasProfile: user.profileId !== undefined,
+      // Only ever about the caller. It decides whether the moderation
+      // screen is offered; every admin route still checks for itself.
+      isAdmin: user.isAdmin === true,
     };
   });
 };

@@ -48,6 +48,7 @@ export interface Me {
   email: string;
   emailVerified: boolean;
   hasProfile: boolean;
+  isAdmin: boolean;
 }
 
 export const getAuthConfig = () =>
@@ -241,6 +242,46 @@ export const reportProfile = (input: {
 
 export const deleteAccount = () =>
   api<void>("/account", { method: "DELETE", body: { confirm: "delete my account" } });
+
+/* ── moderation (the server refuses all of this to anyone else) ── */
+
+export type ModerationStatus = "active" | "restricted" | "suspended";
+
+export interface ModerationCase {
+  id: string;
+  profileId: string;
+  displayName: string;
+  moderationStatus: ModerationStatus;
+  strikes: number;
+  pending: number;
+  opened: string;
+}
+
+export interface CaseReport {
+  id: string;
+  reason: string;
+  details: string | null;
+  evidence: { messageId: string; body: string; at: string; source?: "message" | "scene" }[];
+  status: string;
+  at: string;
+}
+
+export const getCases = () => api<{ cases: ModerationCase[] }>("/admin/cases");
+
+export const getCaseReports = (caseId: string) =>
+  api<{ reports: CaseReport[] }>(`/admin/cases/${encodeURIComponent(caseId)}/reports`);
+
+export const decideReport = (reportId: string, decision: "actioned" | "dismissed", note?: string) =>
+  api<{ decision: string; strikes: number; restricted: boolean }>(
+    `/admin/reports/${encodeURIComponent(reportId)}`,
+    { method: "PATCH", body: { decision, note: note || undefined } }
+  );
+
+export const setProfileStatus = (profileId: string, moderationStatus: ModerationStatus) =>
+  api<{ moderationStatus: ModerationStatus }>(`/admin/profiles/${encodeURIComponent(profileId)}`, {
+    method: "PATCH",
+    body: { moderationStatus },
+  });
 
 export const getNotifications = () =>
   api<{ emailWhenWaiting: boolean }>("/account/notifications");

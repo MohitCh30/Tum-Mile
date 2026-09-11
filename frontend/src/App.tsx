@@ -30,6 +30,7 @@ import { Account } from "./screens/Account";
 import { Questions } from "./screens/Questions";
 import { Turnstile } from "./components/Turnstile";
 import { Privacy, Terms } from "./screens/Legal";
+import { Moderate } from "./screens/Moderate";
 
 /* ── the window everything is read through ────────────────────── */
 
@@ -48,7 +49,15 @@ function Scene({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Shell({ children, onSignedOut }: { children: React.ReactNode; onSignedOut: () => void }) {
+function Shell({
+  children,
+  onSignedOut,
+  isAdmin = false,
+}: {
+  children: React.ReactNode;
+  onSignedOut: () => void;
+  isAdmin?: boolean;
+}) {
   async function signOut() {
     try {
       await logout();
@@ -74,6 +83,8 @@ function Shell({ children, onSignedOut }: { children: React.ReactNode; onSignedO
           ["/you", "You"],
           ["/questions", "Questions"],
           ["/account", "Account"],
+          // Offered to the moderator only; the server is the actual gate.
+          ...(isAdmin ? [["/moderate", "Moderate"]] : []),
         ].map(([to, label]) => (
           <NavLink key={to} to={to} end={to === "/"} className="navlink">
             {label}
@@ -411,7 +422,7 @@ function App() {
   // about them before they hand over an address.
   const legal = (page: React.ReactNode) =>
     me ? (
-      <Shell onSignedOut={() => setMe(null)}>{page}</Shell>
+      <Shell onSignedOut={() => setMe(null)} isAdmin={me?.isAdmin ?? false}>{page}</Shell>
     ) : (
       <Scene>
         <div className="wordmark">Tum Mile</div>
@@ -431,7 +442,7 @@ function App() {
           <Route
             path="/"
             element={
-              <Shell onSignedOut={() => setMe(null)}>
+              <Shell onSignedOut={() => setMe(null)} isAdmin={me?.isAdmin ?? false}>
                 <Discovery />
               </Shell>
             }
@@ -439,7 +450,7 @@ function App() {
           <Route
             path="/letters"
             element={
-              <Shell onSignedOut={() => setMe(null)}>
+              <Shell onSignedOut={() => setMe(null)} isAdmin={me?.isAdmin ?? false}>
                 <Inbound />
               </Shell>
             }
@@ -447,7 +458,7 @@ function App() {
           <Route
             path="/matches"
             element={
-              <Shell onSignedOut={() => setMe(null)}>
+              <Shell onSignedOut={() => setMe(null)} isAdmin={me?.isAdmin ?? false}>
                 <Matches />
               </Shell>
             }
@@ -455,7 +466,7 @@ function App() {
           <Route
             path="/questions"
             element={
-              <Shell onSignedOut={() => setMe(null)}>
+              <Shell onSignedOut={() => setMe(null)} isAdmin={me?.isAdmin ?? false}>
                 <Questions />
               </Shell>
             }
@@ -463,7 +474,7 @@ function App() {
           <Route
             path="/account"
             element={
-              <Shell onSignedOut={() => setMe(null)}>
+              <Shell onSignedOut={() => setMe(null)} isAdmin={me?.isAdmin ?? false}>
                 <Account onGone={() => setMe(null)} />
               </Shell>
             }
@@ -471,11 +482,21 @@ function App() {
           <Route
             path="/you"
             element={
-              <Shell onSignedOut={() => setMe(null)}>
+              <Shell onSignedOut={() => setMe(null)} isAdmin={me?.isAdmin ?? false}>
                 <ProfileEdit onSaved={refresh} />
               </Shell>
             }
           />
+          {me.isAdmin ? (
+            <Route
+              path="/moderate"
+              element={
+                <Shell onSignedOut={() => setMe(null)} isAdmin>
+                  <Moderate />
+                </Shell>
+              }
+            />
+          ) : null}
         </>
       ) : (
         <Route path="*" element={<SignIn />} />

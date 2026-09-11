@@ -1,21 +1,26 @@
 import type { FastifyPluginAsync } from "fastify";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, profiles, reports, moderationCases } from "../../storage/db.js";
 import { requireSession, requireAdmin } from "../../middleware/auth.js";
 import { logAudit } from "../../services/audit.js";
 
 /**
- * Moderation, as endpoints rather than a console.
+ * Moderation.
  *
  * One pre-provisioned identity, set by ADMIN_EMAIL. With that unset
  * nobody is an admin — deny by default, so a misconfiguration closes the
- * door rather than opening it.
- *
- * Deliberately no interface: a queue a single person drives from curl is
- * the honest size of this, and a built console would imply a moderation
- * team that does not exist.
+ * door rather than opening it. The /moderate screen is only a way of
+ * calling these; every route here checks the caller for itself.
  */
+
+const PENDING = ["submitted", "reviewing"];
+
+/** Strikes are counted from the record, never kept as a tally that can drift. */
+const actionedCount = (profileId: unknown) =>
+  sql<number>`(select count(*)::int from ${reports} where ${reports.reportedId} = ${profileId} and ${reports.status} = 'actioned')`;
+const pendingCount = (profileId: unknown) =>
+  sql<number>`(select count(*)::int from ${reports} where ${reports.reportedId} = ${profileId} and ${reports.status} in ('submitted', 'reviewing'))`;
 
 const decisionSchema = z.object({
   decision: z.enum(["actioned", "dismissed"]),
@@ -40,7 +45,8 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
         displayName: profiles.displayName,
         moderationStatus: profiles.moderationStatus,
         status: moderationCases.status,
-        strikes: moderationCases.strikeCount,
+        strikes: actionedCount(moderationCases.reportedProfileId),
+        pending: pendingCount(moderationCases.reportedProfileId),
         opened: moderationCases.createdAt,
       })
       .from(moderationCases)
@@ -80,7 +86,11 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
         })
         .from(reports)
         .where(eq(reports.reportedId, openCase.reportedProfileId))
-        .orderBy(desc(reports.createdAt));
+        .orderBy(
+          // Waiting ones first, then the history.
+          desc(inArray(reports.status, PENDING)),
+          desc(reports.createdAt)
+        );
 
       return { case: openCase, reports: rows };
     }
@@ -90,6 +100,11 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
    * Decide a report. An actioned report is a strike; the second one
    * restricts the account automatically, so escalation does not depend on
    * anybody remembering to apply it.
+   *
+   * Strikes are counted from actioned reports, ever, rather than stored on
+   * the case: the case closes once nothing on it is waiting, and a tally
+   * kept there reset whenever it did. Dismissing one report also used to
+   * close the whole case, hiding any other report still waiting on it.
    */
   app.patch<{ Params: { id: string } }>(
     "/admin/reports/:id",
@@ -103,7 +118,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
         .where(eq(reports.id, request.params.id))
         .limit(1);
       if (!report) throw new Error("NOT_FOUND");
-      if (report.status !== "submitted" && report.status !== "reviewing") {
+      if (!PENDING.includes(report.status)) {
         // Already decided; deciding twice would double-count the strike.
         throw new Error("VALIDATION_ERROR");
       }
@@ -120,6 +135,15 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
           })
           .where(eq(reports.id, report.id));
 
+        const [counts] = await tx
+          .select({
+            actioned: actionedCount(report.reportedId),
+            pending: pendingCount(report.reportedId),
+          })
+          .from(sql`(select 1) as one`);
+        strikes = counts?.actioned ?? 0;
+        const stillWaiting = counts?.pending ?? 0;
+
         const [openCase] = await tx
           .select()
           .from(moderationCases)
@@ -131,33 +155,26 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
           )
           .limit(1);
 
-        if (!openCase) return;
-
-        if (input.decision === "actioned") {
-          const [updated] = await tx
-            .update(moderationCases)
-            .set({
-              strikeCount: sql`${moderationCases.strikeCount} + 1`,
-              notes: input.note ?? openCase.notes,
-              updatedAt: new Date(),
-            })
-            .where(eq(moderationCases.id, openCase.id))
-            .returning({ strikes: moderationCases.strikeCount });
-
-          strikes = updated?.strikes ?? 0;
-
-          if (strikes >= STRIKES_TO_RESTRICT) {
-            await tx
-              .update(profiles)
-              .set({ moderationStatus: "restricted", updatedAt: new Date() })
-              .where(eq(profiles.id, report.reportedId));
-            restricted = true;
-          }
-        } else {
+        if (openCase) {
           await tx
             .update(moderationCases)
-            .set({ status: "closed", updatedAt: new Date() })
+            .set({
+              strikeCount: strikes,
+              notes: input.note ?? openCase.notes,
+              status: stillWaiting === 0 ? "closed" : "open",
+              updatedAt: new Date(),
+            })
             .where(eq(moderationCases.id, openCase.id));
+        }
+
+        if (input.decision === "actioned" && strikes >= STRIKES_TO_RESTRICT) {
+          // Only from active: a second strike must never soften a suspension.
+          const changed = await tx
+            .update(profiles)
+            .set({ moderationStatus: "restricted", updatedAt: new Date() })
+            .where(and(eq(profiles.id, report.reportedId), eq(profiles.moderationStatus, "active")))
+            .returning({ id: profiles.id });
+          restricted = changed.length > 0;
         }
       });
 
