@@ -38,8 +38,16 @@ export async function sendEmail(mail: Mail): Promise<void> {
       subject: mail.subject,
       text: mail.text,
     });
-  } catch {
-    // Swallowed deliberately. Subject only, never recipient or body.
-    console.error(`[email] delivery failed for subject: ${mail.subject}`);
+  } catch (err) {
+    // Swallowed deliberately: the caller's response must not change.
+    // Logged: the provider's error code and reply, which say WHY (bad
+    // credentials, unverified sender, account not activated). Never the
+    // recipient or the body, and any address in the reply is redacted.
+    const e = err as { code?: string; responseCode?: number; response?: string };
+    const reply = (e.response ?? "").replace(/[^\s<>@]+@[^\s<>@]+/g, "<address>").slice(0, 200);
+    console.error(
+      `[email] delivery failed for subject: ${mail.subject} ` +
+        `(code=${e.code ?? "?"} smtp=${e.responseCode ?? "?"} reply=${reply || "none"})`
+    );
   }
 }
