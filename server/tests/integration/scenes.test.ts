@@ -87,6 +87,46 @@ beforeEach(async () => {
   resetRateLimits();
 });
 
+describe("retired premises", () => {
+  const RETIRED = "incompetence-and-despair";
+
+  it("are not offered and cannot be started", async () => {
+    const { a, matchId } = await matchedPair();
+
+    const library = await app.inject({
+      method: "GET",
+      url: `${API}/scenes/premises`,
+      headers: { cookie: a.cookie },
+    });
+    const ids = JSON.parse(library.body).premises.map((p: { id: string }) => p.id);
+    expect(ids).not.toContain(RETIRED);
+    expect(ids).toContain("sometimes-in-life");
+
+    // A direct call must be refused too, not just hidden in the UI.
+    expect((await propose(a, matchId, RETIRED)).statusCode).toBe(404);
+  });
+
+  // Retiring must never make a scene two people already wrote vanish.
+  it("still render a scene already played in them", async () => {
+    const { a, b, matchId } = await matchedPair();
+    const [row] = await db
+      .insert(sceneSessions)
+      .values({
+        matchId,
+        premiseId: RETIRED,
+        proposedById: a.profileId,
+        castAId: a.profileId,
+        castBId: b.profileId,
+        status: "playing",
+      })
+      .returning();
+
+    const res = await read(a, row.id);
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).premise.id).toBe(RETIRED);
+  });
+});
+
 describe("the library", () => {
   it("is fixed and authored — there is no custom premise", async () => {
     const { a, matchId } = await matchedPair();
@@ -96,7 +136,7 @@ describe("the library", () => {
         .body
     );
     expect(list.premises.length).toBeGreaterThan(0);
-    expect(list.premises.map((p: { id: string }) => p.id)).toContain("incompetence-and-despair");
+    expect(list.premises.map((p: { id: string }) => p.id)).toContain("sometimes-in-life");
 
     const invented = await propose(a, matchId, "two-strangers-at-a-bar");
     expect(invented.statusCode).toBe(404);

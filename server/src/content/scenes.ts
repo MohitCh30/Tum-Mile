@@ -46,6 +46,12 @@ export interface Premise {
   letterPrompt: string;
   /** Turns each, before the letters. Four is enough to find someone out. */
   turnsEach: number;
+  /**
+   * RETIRED, never deleted: a scene already played keeps its premise, and
+   * the letters two people wrote in it are not ours to make disappear. A
+   * retired premise is hidden from the library and cannot be proposed.
+   */
+  retired?: boolean;
 }
 
 export const PREMISES: readonly Premise[] = [
@@ -93,6 +99,77 @@ export const PREMISES: readonly Premise[] = [
     letterPrompt:
       "Write the letter your character would write years later, and never send.",
     turnsEach: 5,
+    // A father and son is the wrong pairing to hand two people who just
+    // matched. Retired in favour of the same story told as Arjun and Ananya.
+    retired: true,
+  },
+
+  // Two people who could fix it with one sentence each and will not say it.
+  {
+    id: "sometimes-in-life",
+    title: "Sometimes in Life",
+    blurb:
+      "The night before she leaves for Germany. A friend has arranged for them to be in the same place, and neither of them asked him to.",
+    setting:
+      "A terrace in Arjun's building, after eleven. Her flight is at six. His father chose Arjun's life for him and ended the two of them in the process; they have not spoken in two years. The friend who set this up has gone downstairs and is pretending not to wait.",
+    opensWith: "He said you would not come. He cannot lie to save his life, your friend.",
+    roleA: {
+      name: "Ananya",
+      who: "Twenty-three. Leaving for a Master's she applied to the week it ended. Has read too much Dostoevsky to believe in timing.",
+      wants: "To be asked to stay, so that she is the one who decides.",
+    },
+    roleB: {
+      name: "Arjun",
+      who: "Twenty-three. Two years into an MNC job forty kilometres away. Still plays on Sundays, and has stopped calling it temporary.",
+      wants: "To ask her to stay, and cannot, because deciding someone else's life is his father's move.",
+    },
+    letterPrompt:
+      "Write the letter your character hands the friend at the gate, in case the other one never reads it.",
+    turnsEach: 5,
+  },
+
+  {
+    id: "the-margins",
+    title: "The Margins",
+    blurb:
+      "Two regulars in a Delhi library that closes for good tomorrow. For a year they have written to each other in the margins of the same book, and never once spoken.",
+    setting:
+      "The reading room of an old municipal library, the afternoon before it shuts. Half the shelves are already in boxes. The book is on the table between them, and each of them knows what the other has written in it.",
+    opensWith: "You underline in pencil. Nobody underlines in pencil any more.",
+    roleA: {
+      name: "Meher",
+      who: "Came here to study for an exam she has since given up on. Kept coming anyway.",
+      wants: "To find out whether he knew it was her.",
+    },
+    roleB: {
+      name: "Kabir",
+      who: "Retired from nothing in particular. Writes better in the margins than he speaks.",
+      wants: "For the notes not to be ruined by his turning into a real person.",
+    },
+    letterPrompt: "Write the last note your character leaves in the margin.",
+    turnsEach: 4,
+  },
+
+  {
+    id: "results-day",
+    title: "Results Day, a Year Late",
+    blurb:
+      "Two people from the same Kota hostel. One cleared, one did not. They meet at the same chai stall exactly a year later.",
+    setting:
+      "The chai stall outside the coaching institute, on results day, a year after theirs. New seventeen-year-olds are crowding the notice board. Neither of them planned to be here.",
+    opensWith: "You still take it with no sugar. You said that was temporary too.",
+    roleA: {
+      name: "Riya",
+      who: "Cleared. In her first year at an IIT she does not much like, home for the week.",
+      wants: "To be forgiven for getting in, without having to say that is what she wants.",
+    },
+    roleB: {
+      name: "Aman",
+      who: "Did not. Took a drop, then another, and now works at his uncle's shop.",
+      wants: "For her to stop being kind about it.",
+    },
+    letterPrompt: "Write what your character would say to the other's seventeen-year-old self.",
+    turnsEach: 4,
   },
 
   {

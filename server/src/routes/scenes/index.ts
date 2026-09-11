@@ -122,7 +122,7 @@ function shape(scene: SceneSession, premise: Premise, turns: SceneTurn[], me: st
 export const sceneRoutes: FastifyPluginAsync = async (app) => {
   /** The library. Fixed and authored — there is no custom premise. */
   app.get("/scenes/premises", { preHandler: [requireSession] }, async () => ({
-    premises: PREMISES.map((p) => ({
+    premises: PREMISES.filter((p) => !p.retired).map((p) => ({
       id: p.id,
       title: p.title,
       blurb: p.blurb,
@@ -177,8 +177,10 @@ export const sceneRoutes: FastifyPluginAsync = async (app) => {
       const me = request.user!.profileId!;
       const input = proposeSchema.parse(request.body);
 
+      // Retired premises still render the scenes already played in them,
+      // but nobody starts a new one.
       const premise = getPremise(input.premiseId);
-      if (!premise) throw new Error("NOT_FOUND");
+      if (!premise || premise.retired) throw new Error("NOT_FOUND");
 
       const { otherProfileId } = await requireParticipant(input.matchId, me);
 
