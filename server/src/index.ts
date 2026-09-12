@@ -90,7 +90,7 @@ async function start(): Promise<void> {
   const notifier = setInterval(() => void tellPeople(), 60 * 60_000);
 
   const shutdown = async (signal: string): Promise<void> => {
-    app.log.info(`${signal} — shutting down`);
+    app.log.info(`${signal}: shutting down`);
     clearInterval(maintenance);
     clearTimeout(firstNotify);
     clearInterval(notifier);

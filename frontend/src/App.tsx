@@ -212,7 +212,7 @@ function SignIn() {
 
             {devUrl ? (
               <p className="notice">
-                Local development — <a href={devUrl}>open the link</a>
+                Local development: <a href={devUrl}>open the link</a>
                 {devCode ? <>, or type {devCode}</> : null}, or read it in the{" "}
                 <a href="http://localhost:8025" target="_blank" rel="noreferrer">
                   Mailpit inbox

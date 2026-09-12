@@ -99,7 +99,7 @@ export async function requestMagicLink(rawEmail: string): Promise<LinkRequestRes
       `Or type this code where you asked for it: ${code}`,
       "",
       "Either works once, and only for the next fifteen minutes.",
-      "If this was not you, nothing has happened — ignore this and both expire.",
+      "If this was not you, nothing has happened. Ignore this and both expire.",
     ].join("\n"),
   });
 

@@ -152,7 +152,7 @@ export function Conversation({
         <div className="card stack" style={{ gap: 14 }}>
           <p className="prose">
             Blocking ends this conversation and deletes it for both of you. Report first if you want
-            it looked at — the messages are kept as evidence at that moment, and not after.
+            it looked at. The messages are kept as evidence at that moment, and not after.
           </p>
           <div className="row">
             <button className="button button-quiet grow" onClick={() => setSafety("report")}>

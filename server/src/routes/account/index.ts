@@ -283,7 +283,7 @@ export const accountRoutes: FastifyPluginAsync = async (app) => {
             "Your account is gone.",
             "",
             "Erased: your address, your sessions, everything you wrote on your page,",
-            "every like and pass, and every message you sent — including the ones in",
+            "every like and pass, and every message you sent, including the ones in",
             "other people's conversations.",
             "",
             "Kept: reports other people filed about this account, and the security log",

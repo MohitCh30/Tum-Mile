@@ -78,7 +78,7 @@ export function Account({ onGone }: { onGone: () => void }) {
           <h2 className="label">a note when something is waiting</h2>
           <p className="prose">
             Nothing here ever notifies you. If you would rather not have to check, we can send one
-            short email, at most once a day, saying only that something is waiting — never who, and
+            short email, at most once a day, saying only that something is waiting, never who, and
             never what.
           </p>
           <button
@@ -87,7 +87,7 @@ export function Account({ onGone }: { onGone: () => void }) {
             onClick={toggleNote}
             style={{ alignSelf: "flex-start" }}
           >
-            {noteOn ? "On — one note a day at most" : "Off"}
+            {noteOn ? "On, one note a day at most" : "Off"}
           </button>
         </section>
       ) : null}
@@ -109,7 +109,7 @@ export function Account({ onGone }: { onGone: () => void }) {
           </ul>
         )}
         <p className="meta">
-          unblocking does not bring back a conversation — those are deleted for good
+          unblocking does not bring back a conversation; those are deleted for good
         </p>
       </section>
 
@@ -128,7 +128,7 @@ export function Account({ onGone }: { onGone: () => void }) {
         <h2 className="label">leaving</h2>
         <p className="prose">
           Erased: your address, your sessions, everything on your page, every like and pass, and
-          every message you sent — including the ones in other people's conversations.
+          every message you sent, including the ones in other people's conversations.
         </p>
         <p className="prose">
           Kept: reports other people filed about this account, and the log of actions taken. Neither

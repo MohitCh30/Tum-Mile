@@ -26,7 +26,7 @@ const REASONS: Record<string, string> = {
   spam: "spam",
   harassment: "harassment",
   scam: "a scam",
-  deception: "deception — presenting as single, or as someone else",
+  deception: "deception: presenting as single, or as someone else",
   other: "something else",
 };
 
@@ -222,7 +222,7 @@ export function Moderate() {
                         onClick={() => changeStatus(c.profileId, s.value)}
                         title={s.means}
                       >
-                        {s.label} — {s.means}
+                        {s.label}: {s.means}
                       </button>
                     ))}
                   </div>

@@ -129,7 +129,7 @@ export function Questions() {
           </h2>
           <p className="prose">
             Insisting on an answer means you will only meet people who answered a way you can live
-            with. Three at most — insisting on everything insists on nothing.
+            with. Three at most. Insisting on everything insists on nothing.
           </p>
 
           {mine.map((answer) => (

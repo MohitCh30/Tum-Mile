@@ -75,7 +75,7 @@ export function Scenes({ matchId, withWhom }: { matchId: string; withWhom: strin
           </button>
         </div>
         <p className="prose">
-          You will not choose which part you play — that is assigned, so nobody takes only the
+          You will not choose which part you play. That is assigned, so nobody takes only the
           flattering half. {withWhom} has to agree before it starts.
         </p>
         {premises.map((premise) => (
@@ -171,7 +171,7 @@ function OpenScene({
         <div className="stack" style={{ gap: 6 }}>
           <div className="label">you would play</div>
           <div className="prose">
-            <strong>{scene.you.name}</strong> — {scene.you.who}
+            <strong>{scene.you.name}</strong>, {scene.you.who}
           </div>
         </div>
         {scene.proposedByYou ? (
@@ -209,7 +209,7 @@ function OpenScene({
         </div>
         <p className="prose">{scene.premise.setting}</p>
         <p className="meta">
-          you are {scene.you.name} — {scene.you.wants}
+          you are {scene.you.name}, {scene.you.wants}
         </p>
       </div>
 

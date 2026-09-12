@@ -51,7 +51,7 @@ export function Privacy() {
       <Section title="what you give us">
         <p className="prose">
           Your email address, so we can send you a way in. Everything you write on your page, your
-          answers to the questions, and the facts you choose to state. Your date of birth — other
+          answers to the questions, and the facts you choose to state. Your date of birth, though other
           people see only your age.
         </p>
         <p className="prose">
@@ -65,7 +65,7 @@ export function Privacy() {
         <p className="prose">
           Only if you share it, and only roughly: your position is reduced to an area about five
           kilometres across before it is saved, and the exact point is never kept. Other people see
-          a distance band — "about 5 km away" — never a number, and you can hide even that.
+          a distance band, "about 5 km away", never a number, and you can hide even that.
         </p>
       </Section>
 
@@ -89,8 +89,8 @@ export function Privacy() {
       <Section title="who sees what">
         <p className="prose">
           People reading here see your page. Only the person you are matched with sees your
-          messages and scenes. If someone reports you, the moderator — the one person who runs this
-          — sees your own recent messages and scene lines from that conversation, copied at the
+          messages and scenes. If someone reports you, the moderator, the one person who runs this,
+          sees your own recent messages and scene lines from that conversation, copied at the
           moment of the report, and nothing the reporter wrote.
         </p>
       </Section>
@@ -131,7 +131,7 @@ export function Privacy() {
 
       <Section title="asking">
         <p className="prose">
-          For anything you cannot do yourself — a correction, a question, a complaint — write to{" "}
+          For anything you cannot do yourself, such as a correction, a question or a complaint, write to{" "}
           <a href={`mailto:${CONTACT}`}>{CONTACT}</a>. It reaches a person.
         </p>
       </Section>
@@ -188,7 +188,7 @@ export function Terms() {
       <Section title="what this place cannot promise">
         <p className="prose">
           Signing in proves only that you can open an email. It does not prove who anyone is, how
-          old they are, or what they intend — here or on any other app. Meet somewhere public, tell
+          old they are, or what they intend, here or on any other app. Meet somewhere public, tell
           a friend where you are going, and trust how a person treats you over what they wrote.
         </p>
         <p className="prose">
