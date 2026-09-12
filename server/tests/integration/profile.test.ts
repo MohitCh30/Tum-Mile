@@ -43,7 +43,33 @@ describe("writing your own profile", () => {
     const body = JSON.parse(res.body);
     expect(body.complete).toBe(false);
     expect(body.missing).toContain("oneLine");
-    expect(body.missing).toContain("form");
+    // The letter is invited, not required: a one line plus anything else
+    // readable is enough to be read.
+    expect(body.missing).toContain("somethingToRead");
+    expect(body.missing).not.toContain("form");
+  });
+
+  it("counts a letter alone, with nothing in Currently and no answers, as readable", async () => {
+    const cookie = await signUp(app, "letter-only@test.local");
+    const res = await app.inject({
+      method: "PUT",
+      url: `${API}/profile`,
+      headers: { cookie },
+      payload: {
+        displayName: "Kabir",
+        birthDate: new Date(Date.UTC(1998, 3, 2)).toISOString(),
+        gender: "man",
+        seeking: ["woman"],
+        oneLine: "I keep buying second copies of books I already own.",
+        formType: "letter",
+        formBody: "To whoever is reading. It can be short.",
+        currently: {},
+        promptAnswers: [],
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).complete).toBe(true);
   });
 
   it("refuses anyone under 18, whatever the form says", async () => {

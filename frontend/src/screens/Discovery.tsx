@@ -26,6 +26,7 @@ export function Discovery() {
   const [budget, setBudget] = useState<Budget | null>(null);
   const [matched, setMatched] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -37,6 +38,7 @@ export function Discovery() {
       setState(next);
       if (next.budget) setBudget(next.budget);
     } catch (err) {
+      setErrorCode(err instanceof ApiError ? err.code : null);
       setError(err instanceof ApiError ? err.message : "Something went wrong.");
     }
   }, []);
@@ -92,7 +94,26 @@ export function Discovery() {
     );
   }
 
-  if (error && !state) return <p className="notice notice-bad">{error}</p>;
+  // A person who has just signed in has no profile, so discovery refuses
+  // them. That used to render as one line of error text with nowhere to go,
+  // and it was the first thing anyone saw. It is now the way in.
+  if (error && !state) {
+    return errorCode === "NO_PROFILE" ? (
+      <div className="stack" style={{ gap: 22 }}>
+        <div className="said said-sm">Nobody here has a photograph.</div>
+        <p className="prose">
+          People are read instead. Write a line about yourself and one other thing, and you can
+          start reading other people. It takes about three minutes, and nobody sees you until you
+          are done.
+        </p>
+        <a className="button" href="/you">
+          Write your page
+        </a>
+      </div>
+    ) : (
+      <p className="notice notice-bad">{error}</p>
+    );
+  }
   if (!state) return <p className="notice">Looking…</p>;
 
   if (!state.profile) {
@@ -105,9 +126,20 @@ export function Discovery() {
         </div>
         <p className="prose">
           {state.reason === "incomplete_profile"
-            ? "There is nothing to read on your page yet, so there is nothing to read on anyone else's."
+            ? `Still needed before anyone can read you: ${(state.missing ?? [])
+                .map((m) =>
+                  m === "oneLine"
+                    ? "your one line"
+                    : "your letter, something in Currently, or one answer"
+                )
+                .join(", ")}.`
             : "Everyone who fits has been read. More people, or a wider preference, and there will be someone here."}
         </p>
+        {state.reason === "incomplete_profile" ? (
+          <a className="button" href="/you">
+            Finish your page
+          </a>
+        ) : null}
       </div>
     );
   }

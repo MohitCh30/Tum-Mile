@@ -364,7 +364,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
                 ? "your one line"
                 : m === "form"
                   ? "your letter, memoir, poem or list"
-                  : "something in Currently, or one answer"
+                  : "your letter, something in Currently, or one answer"
             )
             .join(", ")}
           .

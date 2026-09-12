@@ -66,17 +66,20 @@ export function completeness(profile: Profile): Completeness {
   const missing: string[] = [];
 
   if (!profile.oneLine || profile.oneLine.trim() === "") missing.push("oneLine");
-  if (!profile.formType || !profile.formBody || profile.formBody.trim() === "") {
-    missing.push("form");
-  }
 
   const currentlyFilled = Object.values(profile.currently ?? {}).filter(
     (v) => typeof v === "string" && v.trim() !== ""
   ).length;
   const answers = (profile.promptAnswers ?? []).filter((a) => a.answer.trim() !== "").length;
 
-  // Something live, or something considered. Not necessarily both.
-  if (currentlyFilled === 0 && answers === 0) missing.push("currentlyOrAnswer");
+  const written = (profile.formBody ?? "").trim() !== "";
+
+  // One line, and one other thing a person can actually read: the letter,
+  // something live, or one answer. Requiring the letter as well turned the
+  // way in into a writing assignment, and people left at the blank page
+  // rather than finishing. It is still the first thing invited, just no
+  // longer the toll.
+  if (!written && currentlyFilled === 0 && answers === 0) missing.push("somethingToRead");
 
   return { complete: missing.length === 0, missing };
 }
