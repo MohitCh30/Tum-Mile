@@ -25,11 +25,22 @@ const STATUSES = [
   ["not_in_a_hurry", "Single, not in a hurry"],
 ] as const;
 
+/**
+ * Three answers, not a text box. Free text here meant "Female" and "woman"
+ * were different people to the matcher, and the pair simply never saw each
+ * other. The server stores these same three values.
+ */
+const GENDERS = [
+  ["woman", "A woman"],
+  ["man", "A man"],
+  ["non-binary", "Non-binary"],
+] as const;
+
 type Draft = {
   displayName: string;
   birthDate: string;
   gender: string;
-  seeking: string;
+  seeking: string[];
   oneLine: string;
   formType: string;
   formBody: string;
@@ -47,7 +58,7 @@ const EMPTY: Draft = {
   displayName: "",
   birthDate: "",
   gender: "",
-  seeking: "",
+  seeking: [],
   oneLine: "",
   formType: "letter",
   formBody: "",
@@ -86,7 +97,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
           displayName: p.displayName ?? "",
           birthDate: p.birthDate ? p.birthDate.slice(0, 10) : "",
           gender: p.gender ?? "",
-          seeking: (p.seeking ?? []).join(", "),
+          seeking: p.seeking ?? [],
           oneLine: p.oneLine ?? "",
           formType: p.formType ?? "letter",
           formBody: p.formBody ?? "",
@@ -125,7 +136,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
         displayName: draft.displayName,
         birthDate: draft.birthDate ? new Date(draft.birthDate).toISOString() : undefined,
         gender: draft.gender,
-        seeking: csv(draft.seeking),
+        seeking: draft.seeking,
         oneLine: draft.oneLine || null,
         formType: draft.formType,
         formBody: draft.formBody || null,
@@ -274,13 +285,60 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
       </section>
 
       <section className="stack" style={{ gap: 12 }}>
+        <h2 className="label">you, and who you would like to meet</h2>
+        <p className="prose">
+          The only thing this decides is who is shown to whom. You are shown to someone
+          when each of you is looking for the other.
+        </p>
+
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="meta">You are</span>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            {GENDERS.map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={`chip${draft.gender === value ? " chip-on" : ""}`}
+                onClick={() => set("gender", value)}
+                aria-pressed={draft.gender === value}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="meta">You would like to meet</span>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            {GENDERS.map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={`chip${draft.seeking.includes(value) ? " chip-on" : ""}`}
+                onClick={() =>
+                  setDraft((d) => ({
+                    ...d,
+                    seeking: d.seeking.includes(value)
+                      ? d.seeking.filter((g) => g !== value)
+                      : [...d.seeking, value],
+                  }))
+                }
+                aria-pressed={draft.seeking.includes(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="stack" style={{ gap: 12 }}>
         <h2 className="label">the plain facts</h2>
         {(
           [
             ["displayName", "Name", "text"],
             ["birthDate", "Date of birth", "date"],
-            ["gender", "You are", "text"],
-            ["seeking", "You would like to meet (comma separated)", "text"],
             ["languages", "Languages you would rather talk in", "text"],
             ["interests", "Interests, comma separated", "text"],
           ] as const

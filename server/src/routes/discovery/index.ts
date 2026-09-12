@@ -17,6 +17,7 @@ import { logAudit } from "../../services/audit.js";
 import { config } from "../../config.js";
 import { ageFrom, completeness, isQuotable, toPublicProfile } from "../../lib/profile.js";
 import { distanceKm, distanceBand } from "../../lib/geo.js";
+import { wants } from "../../lib/gender.js";
 import { compatibility, WEIGHTS } from "../../lib/compatibility.js";
 import { budget, startOfDay } from "../../lib/budget.js";
 
@@ -79,9 +80,10 @@ function eligible(viewer: Profile, candidate: Profile, now: Date): boolean {
   if (candidate.moderationStatus !== "active") return false;
   if (!completeness(candidate).complete) return false;
 
-  // Two-sided: each must be seeking the other's stated gender.
-  if (viewer.seeking.length > 0 && !viewer.seeking.includes(candidate.gender)) return false;
-  if (candidate.seeking.length > 0 && !candidate.seeking.includes(viewer.gender)) return false;
+  // Two-sided: each must be seeking the other's stated gender. Compared
+  // through the canonical form, so "Female" and "woman" are one thing.
+  if (!wants(viewer.seeking, candidate.gender)) return false;
+  if (!wants(candidate.seeking, viewer.gender)) return false;
 
   const viewerAge = ageFrom(viewer.birthDate, now);
   const candidateAge = ageFrom(candidate.birthDate, now);

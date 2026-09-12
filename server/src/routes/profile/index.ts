@@ -18,6 +18,7 @@ import {
 } from "../../content/prompts.js";
 import { ageFrom, MINIMUM_AGE, completeness, toPublicProfile } from "../../lib/profile.js";
 import { encodeGeohash, distanceKm, distanceBand } from "../../lib/geo.js";
+import { canonicalGender } from "../../lib/gender.js";
 import { updateProfileEmbedding } from "../../services/embeddings.js";
 
 const writeLimit = {
@@ -44,12 +45,26 @@ const STATUSES = [
  * is what stops `moderationStatus`, `authUserId` and `id` being writable
  * by anyone who reads the response shape and guesses.
  */
+/**
+ * Gender is written in canonical form, so discovery never has to guess
+ * whether "Female" and "woman" are the same answer. What people type is
+ * accepted; what is stored is one of three values.
+ */
+const genderField = z.string().max(40).transform((value, ctx) => {
+  const gender = canonicalGender(value);
+  if (!gender) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "unknown gender" });
+    return z.NEVER;
+  }
+  return gender;
+});
+
 const profileWriteSchema = z
   .object({
     displayName: z.string().trim().min(1).max(60),
     birthDate: z.coerce.date(),
-    gender: z.string().trim().min(1).max(40),
-    seeking: z.array(z.string().trim().min(1).max(40)).max(6),
+    gender: genderField,
+    seeking: z.array(genderField).max(6),
 
     oneLine: z.string().trim().max(MAX_ONE_LINE_LENGTH).nullable(),
     formType: z.enum(FORM_TYPES).nullable(),

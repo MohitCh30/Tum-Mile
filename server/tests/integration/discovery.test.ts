@@ -55,6 +55,38 @@ describe("discovery", () => {
     expect(body.budget).toEqual({ limit: 6, used: 0, remaining: 6 });
   });
 
+  // Regression: gender was free text compared as an exact string, so a
+  // profile saying "Female" was invisible to everyone seeking "woman" —
+  // and the pair was told "nobody new", which is what the app says when it
+  // is working. Both sides are stored canonically now.
+  it("treats Female, F and woman as one answer", async () => {
+    const viewer = await makeActor(app, "v@test.local", { gender: "Male", seeking: ["Female"] });
+    await makeActor(app, "c@test.local", { gender: "F", seeking: ["M"] });
+
+    const { body } = await discover(viewer);
+    expect(body.profile.displayName).toBe("c");
+
+    const [stored] = await db.select().from(profiles).where(eq(profiles.displayName, "c"));
+    expect(stored.gender).toBe("woman");
+    expect(stored.seeking).toEqual(["man"]);
+  });
+
+  it("refuses a gender it cannot place, rather than storing a word nothing matches", async () => {
+    const cookie = await signUp(app, "odd@test.local");
+    const res = await app.inject({
+      method: "PUT",
+      url: `${API}/profile`,
+      headers: { cookie },
+      payload: {
+        displayName: "Odd",
+        birthDate: new Date(Date.UTC(1996, 0, 1)).toISOString(),
+        gender: "whatever",
+        seeking: ["woman"],
+      },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
   // Symmetric: an empty profile is this product's blank photo. It neither
   // sees nor is seen.
   it("shows nobody to someone with an empty profile, and hides them from others", async () => {
