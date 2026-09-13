@@ -23,8 +23,12 @@ body {
     linear-gradient(180deg, var(--ground-top) 0%, var(--ground-mid) 52%, var(--ground-deep) 100%);
 }
 
+/* Fixed, not absolute: the weather is the window you read through, so it stays
+   put while the page moves behind it. Absolute made these layers as tall as the
+   document, which meant the blur and the grain blend had to be re-rasterized
+   over the whole scrolled height — on a phone that paints as blank bands. */
 .lamp, .rain-far, .rain-near, .haze, .grain, .condensation {
-  position: absolute;
+  position: fixed;
   inset: 0;
   pointer-events: none;
 }
@@ -90,7 +94,7 @@ body {
 }
 
 .seam {
-  position: absolute;
+  position: fixed;
   top: 0;
   bottom: 0;
   left: var(--seam-x);
@@ -217,6 +221,16 @@ a:hover { color: var(--lamp); }
 
 @media (prefers-reduced-motion: reduce) {
   .rain-far, .rain-near { animation: none; }
+}
+
+/* A live blur behind a scrolling page is the most expensive thing here, and on
+   a phone it is what flickers. The veil alone carries the edge, so drop the
+   blur where there is no mouse. */
+@media (hover: none) {
+  .condensation {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 /* ── reading a person ─────────────────────────────────────────── */
