@@ -11,6 +11,7 @@ import {
   type Message,
   type ReportReason,
 } from "../lib/api";
+import { usePoll } from "../lib/usePoll";
 import { Scenes } from "./Scenes";
 
 const REASONS: { value: ReportReason; label: string }[] = [
@@ -67,12 +68,11 @@ export function Conversation({
     }
   }, [matchId]);
 
+  usePoll(poll, POLL_MS);
+
   useEffect(() => {
-    void poll();
     void getReactions().then((r) => setReactions(r.reactions)).catch(() => undefined);
-    const timer = setInterval(() => void poll(), POLL_MS);
-    return () => clearInterval(timer);
-  }, [poll]);
+  }, []);
 
   async function send(e: React.FormEvent) {
     e.preventDefault();

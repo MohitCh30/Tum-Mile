@@ -11,6 +11,7 @@ import {
   type PremiseCard,
   type Scene,
 } from "../lib/api";
+import { usePoll } from "../lib/usePoll";
 
 const POLL_MS = 5000;
 
@@ -39,12 +40,11 @@ export function Scenes({ matchId, withWhom }: { matchId: string; withWhom: strin
     }
   }, [matchId]);
 
+  usePoll(load, POLL_MS);
+
   useEffect(() => {
-    void load();
     void getPremises().then((p) => setPremises(p.premises)).catch(() => undefined);
-    const timer = setInterval(() => void load(), POLL_MS);
-    return () => clearInterval(timer);
-  }, [load]);
+  }, []);
 
   async function run<T>(action: () => Promise<T>) {
     setBusy(true);
