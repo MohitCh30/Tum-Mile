@@ -8,8 +8,11 @@ import {
   likes,
   passes,
   matches,
+  messages,
+  sceneSessions,
   questionAnswers,
 } from "../../storage/db.js";
+import { requireParticipant } from "../../lib/conversation.js";
 import type { Profile, QuestionAnswer } from "../../storage/schema.js";
 import { requireSession, requireProfile } from "../../middleware/auth.js";
 import { rateLimit } from "../../middleware/rate-limit.js";
@@ -513,6 +516,57 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
           ];
         }),
       };
+    }
+  );
+
+  /**
+   * Leave a match, quietly.
+   *
+   * Until this existed the only way out of a conversation was to BLOCK the
+   * other person — a control built for someone who frightens you, carrying
+   * a permanent bar. Most conversations do not end because anyone did
+   * anything wrong, and making people reach for the safety tool to say so
+   * both overstates what happened and wears out the tool.
+   *
+   * It scrubs the conversation exactly as a block does, for the same
+   * reason: leaving your words in front of someone you have walked away
+   * from is not a neutral act. What it does NOT do is bar them, which is
+   * the whole difference. Nobody is told; there is no notification here
+   * and none anywhere else either.
+   */
+  app.delete<{ Params: { id: string } }>(
+    "/matches/:id",
+    { preHandler: [requireSession, requireProfile, rateLimit(writeLimit)] },
+    async (request, reply) => {
+      const me = request.user!.profileId!;
+
+      // Authorization, liveness and the block check in one call — the same
+      // one every message read and write already goes through, so a
+      // stranger, an ended match and one that never existed all answer 404.
+      const { match, otherProfileId } = await requireParticipant(request.params.id, me);
+
+      await db.transaction(async (tx) => {
+        await tx.delete(messages).where(eq(messages.matchId, match.id));
+        // Scenes are part of the conversation; turns and letters cascade.
+        await tx.delete(sceneSessions).where(eq(sceneSessions.matchId, match.id));
+        // Conditional on it still being live so that if both people leave
+        // at once, the first one is recorded as having done it rather than
+        // the last one overwriting them.
+        await tx
+          .update(matches)
+          .set({ unmatchedAt: new Date(), unmatchedBy: me })
+          .where(and(eq(matches.id, match.id), isNull(matches.unmatchedAt)));
+      });
+
+      await logAudit({
+        actorType: "user",
+        actorId: request.user!.authUserId,
+        action: "match.left",
+        resourceType: "profile",
+        resourceId: otherProfileId,
+      });
+
+      return reply.status(204).send();
     }
   );
 };

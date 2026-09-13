@@ -201,6 +201,9 @@ export const sendPass = (profileId: string) =>
 export const getInbound = () => api<{ likes: InboundLike[]; budget: Budget }>("/likes/inbound");
 export const getMatches = () => api<{ matches: MatchSummary[] }>("/matches");
 
+/** Ends a conversation without barring anyone. Block is the other thing. */
+export const leaveMatch = (matchId: string) => api<void>(`/matches/${matchId}`, { method: "DELETE" });
+
 /* ── conversation ─────────────────────────────────────────────── */
 
 export interface Message {

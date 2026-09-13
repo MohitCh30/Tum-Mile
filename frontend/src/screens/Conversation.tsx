@@ -4,6 +4,7 @@ import {
   blockProfile,
   getMessages,
   getReactions,
+  leaveMatch,
   react,
   reportProfile,
   sendMessage,
@@ -110,6 +111,15 @@ export function Conversation({
     }
   }
 
+  async function leave() {
+    try {
+      await leaveMatch(matchId);
+      onLeft();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    }
+  }
+
   async function submitReport(e: React.FormEvent) {
     e.preventDefault();
     if (!withWhom) return;
@@ -144,15 +154,23 @@ export function Conversation({
         </button>
         <div className="name">{withWhom?.displayName ?? ""}</div>
         <button className="linkish label" onClick={() => setSafety(safety === "none" ? "menu" : "none")}>
-          safety
+          leave or report
         </button>
       </div>
 
       {safety === "menu" ? (
         <div className="card stack" style={{ gap: 14 }}>
           <p className="prose">
-            Blocking ends this conversation and deletes it for both of you. Report first if you want
-            it looked at. The messages are kept as evidence at that moment, and not after.
+            Leaving ends this quietly, for both of you. {withWhom?.displayName} is not told, nothing
+            of it is kept, and neither of you is barred from anything.
+          </p>
+          <button className="button button-quiet" onClick={leave}>
+            Leave this conversation
+          </button>
+          <p className="prose">
+            If something was wrong rather than merely over, report it first — the messages are kept
+            as evidence at that moment, and not after. Blocking also ends it, and additionally stops
+            them reaching you again.
           </p>
           <div className="row">
             <button className="button button-quiet grow" onClick={() => setSafety("report")}>
