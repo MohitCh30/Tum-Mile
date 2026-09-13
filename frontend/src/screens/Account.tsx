@@ -6,7 +6,9 @@ import {
   getBlocks,
   getMe,
   getNotifications,
+  getPause,
   setNotifications,
+  setPause,
   unblockProfile,
   type Me,
 } from "../lib/api";
@@ -22,6 +24,7 @@ export function Account({ onGone }: { onGone: () => void }) {
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [noteOn, setNoteOn] = useState<boolean | null>(null);
+  const [paused, setPausedState] = useState<boolean | null>(null);
 
   async function load() {
     try {
@@ -32,6 +35,7 @@ export function Account({ onGone }: { onGone: () => void }) {
       if (who.hasProfile) {
         setBlocks((await getBlocks()).blocks);
         setNoteOn((await getNotifications()).emailWhenWaiting);
+        setPausedState((await getPause()).paused);
       }
     } catch {
       // A signed-out or profile-less account simply shows less.
@@ -42,6 +46,15 @@ export function Account({ onGone }: { onGone: () => void }) {
     if (noteOn === null) return;
     try {
       setNoteOn((await setNotifications(!noteOn)).emailWhenWaiting);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    }
+  }
+
+  async function togglePause() {
+    if (paused === null) return;
+    try {
+      setPausedState((await setPause(!paused)).paused);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");
     }
@@ -88,6 +101,25 @@ export function Account({ onGone }: { onGone: () => void }) {
             style={{ alignSelf: "flex-start" }}
           >
             {noteOn ? "On, one note a day at most" : "Off"}
+          </button>
+        </section>
+      ) : null}
+
+      {me?.hasProfile && paused !== null ? (
+        <section className="stack" style={{ gap: 12 }}>
+          <h2 className="label">stepping away</h2>
+          <p className="prose">
+            Nobody can read you, and there is nobody here to read, until you come back. Your page,
+            your conversations and your matches are left exactly as they are. This is not leaving,
+            and nothing is deleted.
+          </p>
+          <button
+            className={`chip${paused ? " chip-on" : ""}`}
+            aria-pressed={paused}
+            onClick={togglePause}
+            style={{ alignSelf: "flex-start" }}
+          >
+            {paused ? "Away — nobody can see you" : "Here, and readable"}
           </button>
         </section>
       ) : null}

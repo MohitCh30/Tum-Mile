@@ -122,7 +122,9 @@ export function Discovery() {
         <div className="said said-sm">
           {state.reason === "incomplete_profile"
             ? "Finish your own page first."
-            : "Nobody new tonight."}
+            : state.reason === "paused"
+              ? "You have stepped away."
+              : "Nobody new tonight."}
         </div>
         <p className="prose">
           {state.reason === "incomplete_profile"
@@ -133,11 +135,20 @@ export function Discovery() {
                     : "your letter, something in Currently, or one answer"
                 )
                 .join(", ")}.`
-            : "Everyone who fits has been read. More people, or a wider preference, and there will be someone here."}
+            : state.reason === "paused"
+              ? // Saying "nobody new" here would be a lie of omission: there
+                // may well be someone, and the reason they are not shown is a
+                // switch this person can turn off themselves.
+                "Nobody can read you while you are away, and there is nobody here to read. Your conversations are untouched, and nothing has been deleted."
+              : "Everyone who fits has been read. More people, or a wider preference, and there will be someone here."}
         </p>
         {state.reason === "incomplete_profile" ? (
           <a className="button" href="/you">
             Finish your page
+          </a>
+        ) : state.reason === "paused" ? (
+          <a className="button" href="/account">
+            Come back
           </a>
         ) : null}
       </div>

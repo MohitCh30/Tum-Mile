@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { ApiError, getInbound, getPrompts, sendLike, type InboundLike } from "../lib/api";
+import {
+  ApiError,
+  getInbound,
+  getPrompts,
+  getSentLikes,
+  sendLike,
+  withdrawLike,
+  type InboundLike,
+  type SentLike,
+} from "../lib/api";
 import { ProfileRead } from "./ProfileRead";
 
 /**
@@ -10,7 +19,7 @@ import { ProfileRead } from "./ProfileRead";
  * Each arrives already attached to a line of yours, so there is never a
  * bare "hey" to answer.
  */
-export function Inbound() {
+function Waiting() {
   const [likes, setLikes] = useState<InboundLike[] | null>(null);
   const [prompts, setPrompts] = useState<Map<string, string>>(new Map());
   const [open, setOpen] = useState<string | null>(null);
@@ -146,6 +155,111 @@ export function Inbound() {
         </section>
       ))}
       {error ? <p className="notice notice-bad">{error}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * The ones you sent that are still out there.
+ *
+ * It will not tell you whether yours has been read, and it tells them
+ * nothing either — a "seen" here would be a read receipt wearing a
+ * different hat. Refusals and expiries leave the list quietly rather
+ * than being reported back as events.
+ */
+function SentLikes() {
+  const [sent, setSent] = useState<SentLike[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function load() {
+    try {
+      setSent((await getSentLikes()).likes);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function takeBack(profileId: string) {
+    setBusy(profileId);
+    setError(null);
+    try {
+      await withdrawLike(profileId);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (error && !sent) return <p className="notice notice-bad">{error}</p>;
+  if (!sent) return <p className="notice">Looking…</p>;
+
+  if (sent.length === 0) {
+    return (
+      <div className="stack" style={{ gap: 20 }}>
+        <div className="said said-sm">Nothing is out there.</div>
+        <p className="prose">
+          When you answer a line of someone's, it waits here until they answer you or it quietly
+          expires.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="stack" style={{ gap: 24 }}>
+      <p className="meta">
+        whether these have been read is not something this app will tell you — taking one back
+        removes your words, but the day's six are still spent
+      </p>
+      {sent.map((like) => (
+        <section className="stack card" style={{ gap: 14 }} key={like.profileId}>
+          <div className="meta">you answered {like.to.displayName}</div>
+          <blockquote className="quoted">{like.quotedLine}</blockquote>
+          <p className="prose">{like.message}</p>
+          <button
+            className="button button-quiet"
+            disabled={busy === like.profileId}
+            onClick={() => takeBack(like.profileId)}
+            style={{ alignSelf: "flex-start" }}
+          >
+            Take it back
+          </button>
+        </section>
+      ))}
+      {error ? <p className="notice notice-bad">{error}</p> : null}
+    </div>
+  );
+}
+
+export function Inbound() {
+  const [tab, setTab] = useState<"waiting" | "sent">("waiting");
+
+  return (
+    <div className="stack" style={{ gap: 24 }}>
+      <div className="row" style={{ gap: 16 }}>
+        <button
+          className={`linkish label${tab === "waiting" ? " chip-on" : ""}`}
+          aria-pressed={tab === "waiting"}
+          onClick={() => setTab("waiting")}
+        >
+          who wrote to you
+        </button>
+        <button
+          className={`linkish label${tab === "sent" ? " chip-on" : ""}`}
+          aria-pressed={tab === "sent"}
+          onClick={() => setTab("sent")}
+        >
+          what you sent
+        </button>
+      </div>
+      {tab === "waiting" ? <Waiting /> : <SentLikes />}
     </div>
   );
 }

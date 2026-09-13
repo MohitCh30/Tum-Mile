@@ -11,6 +11,9 @@ const CODES: Record<string, { status: number; message: string }> = {
   INVALID_SESSION: { status: 401, message: "That session is no longer valid." },
   NOT_VERIFIED: { status: 403, message: "Confirm your email address first." },
   NO_PROFILE: { status: 403, message: "Finish your profile first." },
+  // Not a 404: this is the caller's OWN state, not a guess about someone
+  // else's existence, and it is undone by a switch they already control.
+  PAUSED: { status: 403, message: "You have stepped away. Come back first." },
   FORBIDDEN: { status: 404, message: "Not found." },
   NOT_FOUND: { status: 404, message: "Not found." },
   VALIDATION_ERROR: { status: 400, message: "That request was not valid." },

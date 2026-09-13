@@ -32,6 +32,7 @@ const writeLimit = {
 // Typing it out is the confirmation. There is no undo after this.
 const deleteSchema = z.object({ confirm: z.literal("delete my account") });
 const notificationsSchema = z.object({ emailWhenWaiting: z.boolean() }).strict();
+const pauseSchema = z.object({ paused: z.boolean() }).strict();
 
 export const accountRoutes: FastifyPluginAsync = async (app) => {
   /**
@@ -171,6 +172,52 @@ export const accountRoutes: FastifyPluginAsync = async (app) => {
         .where(eq(profiles.id, request.user!.profileId!));
 
       return { emailWhenWaiting };
+    }
+  );
+
+  /**
+   * Step away without destroying anything.
+   *
+   * The only way to stop being seen used to be deleting the account, which
+   * frees the address and takes the writing, the matches and the history
+   * with it. Somebody who just wants to be invisible for a week — because
+   * an ex joined, or because it is exam season — should not have to burn
+   * the account down to get there.
+   *
+   * Deliberately separate from moderationStatus: that is done TO a person,
+   * this is done BY them. Existing conversations are left alone; if you
+   * want out of one of those there is leaving, and if someone frightens
+   * you there is blocking.
+   */
+  app.get("/account/pause", { preHandler: [requireSession, requireProfile] }, async (request) => {
+    const [row] = await db
+      .select({ pausedAt: profiles.pausedAt })
+      .from(profiles)
+      .where(eq(profiles.id, request.user!.profileId!))
+      .limit(1);
+    return { paused: row?.pausedAt != null };
+  });
+
+  app.put(
+    "/account/pause",
+    { preHandler: [requireSession, requireProfile, rateLimit(writeLimit)] },
+    async (request) => {
+      const { paused } = pauseSchema.parse(request.body);
+
+      await db
+        .update(profiles)
+        .set({ pausedAt: paused ? new Date() : null })
+        .where(eq(profiles.id, request.user!.profileId!));
+
+      await logAudit({
+        actorType: "user",
+        actorId: request.user!.authUserId,
+        action: paused ? "account.paused" : "account.resumed",
+        resourceType: "profile",
+        resourceId: request.user!.profileId!,
+      });
+
+      return { paused };
     }
   );
 

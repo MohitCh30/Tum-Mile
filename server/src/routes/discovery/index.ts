@@ -81,6 +81,7 @@ async function excludedIds(viewerId: string): Promise<Set<string>> {
  */
 function eligible(viewer: Profile, candidate: Profile, now: Date): boolean {
   if (candidate.moderationStatus !== "active") return false;
+  if (candidate.pausedAt) return false;
   if (!completeness(candidate).complete) return false;
 
   // Two-sided: each must be seeking the other's stated gender. Compared
@@ -155,6 +156,10 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
         return { profile: null, reason: "incomplete_profile", missing: own.missing };
       }
 
+      // Paused is symmetric for the same reason: browsing while invisible
+      // would let someone spend a like on a person with no way to answer it.
+      if (viewer.pausedAt) return { profile: null, reason: "paused" };
+
       const excluded = await excludedIds(viewerId);
       const pool = await db
         .select()
@@ -226,6 +231,12 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
       const viewer = await loadProfile(viewerId);
       if (!completeness(viewer).complete) throw new Error("NO_PROFILE");
 
+      // Stepping away has to cut both ways. eligible() only asks whether
+      // the TARGET is away, and the inbound queue is reachable while
+      // paused — so without this, someone who had stepped away could still
+      // answer a letter and be pulled into a new conversation by it.
+      if (viewer.pausedAt) throw new Error("PAUSED");
+
       const [target] = await db
         .select()
         .from(profiles)
@@ -286,10 +297,15 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
           .where(and(eq(likes.likerProfileId, target.id), eq(likes.likedProfileId, viewerId)))
           .limit(1);
 
+        // A withdrawn like is a recalled one: its words are already gone, so
+        // it must not be able to complete a match later. Without this, A
+        // takes their like back, B likes A next week, and the two of them
+        // are matched on the strength of a message neither can read.
         reciprocated =
           reciprocal !== undefined &&
           reciprocal.status !== "expired" &&
-          reciprocal.status !== "declined";
+          reciprocal.status !== "declined" &&
+          reciprocal.status !== "withdrawn";
 
         await tx.insert(likes).values({
           likerProfileId: viewerId,
@@ -334,6 +350,114 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
         matchId,
         budget: budget(config.BUDGET_OUTBOUND_PER_DAY, used + 1),
       });
+    }
+  );
+
+  /**
+   * The likes you have sent that are still waiting.
+   *
+   * Deliberately cannot tell you whether they have been SEEN. The status
+   * distinction between pending and surfaced exists for the inbound queue,
+   * and exposing it here would be a read receipt reintroduced through the
+   * back door — this product does not have those.
+   *
+   * Ones that were declined or that quietly expired simply leave this list
+   * rather than being reported back, for the same reason the inbound
+   * overflow expires quietly: a refusal is not an event someone is owed.
+   */
+  app.get(
+    "/likes/sent",
+    { preHandler: [requireSession, requireProfile, rateLimit(discoveryLimit)] },
+    async (request) => {
+      const viewerId = request.user!.profileId!;
+      const now = new Date();
+      const viewer = await loadProfile(viewerId);
+
+      const sent = await db
+        .select()
+        .from(likes)
+        .where(
+          and(
+            eq(likes.likerProfileId, viewerId),
+            inArray(likes.status, ["pending", "surfaced"])
+          )
+        )
+        .orderBy(desc(likes.createdAt));
+
+      if (sent.length === 0) return { likes: [] };
+
+      const recipients = await db
+        .select()
+        .from(profiles)
+        .where(inArray(profiles.id, sent.map((s) => s.likedProfileId)));
+      const byId = new Map(recipients.map((p) => [p.id, p]));
+
+      return {
+        likes: sent.flatMap((like) => {
+          const other = byId.get(like.likedProfileId);
+          if (!other) return [];
+          const km = distanceKm(viewer.locationGeohash, other.locationGeohash);
+          return [
+            {
+              profileId: other.id,
+              quotedLine: like.quotedLine,
+              message: like.openingMessage,
+              at: like.createdAt,
+              to: toPublicProfile(other, other.privacy.showDistance ? distanceBand(km) : null, now),
+            },
+          ];
+        }),
+      };
+    }
+  );
+
+  /**
+   * Take a sent like back.
+   *
+   * A like carries a quoted line and an opening message — your actual
+   * words — into somebody's queue, and until now there was no way to
+   * recall them. A reaction could be undone but this could not.
+   *
+   * The row is KEPT and blanked rather than deleted. The daily budget
+   * counts rows created today whatever their status, so deleting would
+   * refund the like and turn six careful decisions into an unlimited
+   * churn through candidates. The words go; the decision stays spent.
+   */
+  app.delete<{ Params: { id: string } }>(
+    "/likes/:id",
+    { preHandler: [requireSession, requireProfile, rateLimit(writeLimit)] },
+    async (request, reply) => {
+      const viewerId = request.user!.profileId!;
+
+      const [like] = await db
+        .select()
+        .from(likes)
+        .where(
+          and(eq(likes.likerProfileId, viewerId), eq(likes.likedProfileId, request.params.id))
+        )
+        .limit(1);
+
+      // Nothing to withdraw, already answered, or already matched — all the
+      // same 404. Once it is a match the way out is to leave the match,
+      // which is a different act with different consequences.
+      if (!like || (like.status !== "pending" && like.status !== "surfaced")) {
+        throw new Error("NOT_FOUND");
+      }
+
+      await db
+        .update(likes)
+        .set({ status: "withdrawn", quotedLine: "", openingMessage: "" })
+        .where(and(eq(likes.id, like.id), inArray(likes.status, ["pending", "surfaced"])));
+
+      await logAudit({
+        actorType: "user",
+        actorId: request.user!.authUserId,
+        action: "like.withdrawn",
+        resourceType: "profile",
+        resourceId: request.params.id,
+      });
+
+      return reply.status(204).send();
     }
   );
 

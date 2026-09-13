@@ -165,7 +165,7 @@ export interface Budget {
 
 export interface DiscoveryResponse {
   profile: PublicProfile | null;
-  reason?: "incomplete_profile" | "nobody_new";
+  reason?: "incomplete_profile" | "nobody_new" | "paused";
   missing?: string[];
   why?: { sharedInterests: string[]; sharedLanguages: string[]; nonNegotiableConflict: boolean };
   budget?: Budget;
@@ -203,6 +203,29 @@ export const getMatches = () => api<{ matches: MatchSummary[] }>("/matches");
 
 /** Ends a conversation without barring anyone. Block is the other thing. */
 export const leaveMatch = (matchId: string) => api<void>(`/matches/${matchId}`, { method: "DELETE" });
+
+export interface SentLike {
+  profileId: string;
+  quotedLine: string;
+  message: string;
+  at: string;
+  to: PublicProfile;
+}
+
+/**
+ * Only the ones still waiting. There is deliberately no way to learn
+ * whether yours has been READ — that would be a read receipt, which this
+ * product does not have. Declined and expired ones simply leave the list.
+ */
+export const getSentLikes = () => api<{ likes: SentLike[] }>("/likes/sent");
+
+/** Recalls the words. The like still counts against the day's six. */
+export const withdrawLike = (profileId: string) =>
+  api<void>(`/likes/${profileId}`, { method: "DELETE" });
+
+export const getPause = () => api<{ paused: boolean }>("/account/pause");
+export const setPause = (paused: boolean) =>
+  api<{ paused: boolean }>("/account/pause", { method: "PUT", body: { paused } });
 
 /* ── conversation ─────────────────────────────────────────────── */
 

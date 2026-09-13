@@ -145,6 +145,13 @@ export const profiles = pgTable(
 
     moderationStatus: text("moderation_status").notNull().default("active"),
 
+    // Set while someone has stepped away. Distinct from moderationStatus:
+    // that is done TO a person by a moderator, this is done BY them, and
+    // the two must never be confused in a query or in a support reply.
+    // Until this existed the only way to stop being seen was to delete the
+    // account, which freed the address and destroyed the writing with it.
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
+
     // What this person's WRITING is about, as a vector.
     //
     // Derived from the one-line, the chosen form and the prompt answers —
@@ -264,7 +271,7 @@ export const likes = pgTable(
     check("no_self_like", sql`${t.likerProfileId} <> ${t.likedProfileId}`),
     check(
       "like_status_valid",
-      sql`${t.status} in ('pending', 'surfaced', 'expired', 'matched', 'declined')`
+      sql`${t.status} in ('pending', 'surfaced', 'expired', 'matched', 'declined', 'withdrawn')`
     ),
   ]
 );

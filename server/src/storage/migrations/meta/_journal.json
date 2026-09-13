@@ -50,6 +50,13 @@
       "when": 1789129577597,
       "tag": "0006_robust_maggott",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789314408097,
+      "tag": "0007_same_king_cobra",
+      "breakpoints": true
     }
   ]
 }
