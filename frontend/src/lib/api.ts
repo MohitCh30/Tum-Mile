@@ -11,6 +11,20 @@ export class ApiError extends Error {
   }
 }
 
+let unauthorized: (() => void) | null = null;
+
+/**
+ * Told whenever the server says there is no session.
+ *
+ * A cookie expires, or you sign out in another tab, and every screen then
+ * printed the refusal in red with the navigation still above it and no way
+ * back to the sign-in form. One handler, at the one place every request
+ * passes through.
+ */
+export function onUnauthorized(handler: () => void) {
+  unauthorized = handler;
+}
+
 /**
  * The server answers `{ error: { code, message } }` and nothing else on
  * failure — the message is already safe to show, so we never invent one.
@@ -38,6 +52,7 @@ export async function api<T>(
 
   if (!res.ok) {
     const err = (data as { error?: { code?: string; message?: string } })?.error;
+    if (res.status === 401) unauthorized?.();
     throw new ApiError(err?.code ?? "UNKNOWN", err?.message ?? "Something went wrong.", res.status);
   }
 

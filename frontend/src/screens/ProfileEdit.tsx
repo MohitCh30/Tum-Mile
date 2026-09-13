@@ -78,6 +78,26 @@ const csv = (s: string) =>
     .map((x) => x.trim())
     .filter(Boolean);
 
+/**
+ * Where an unsaved page is kept.
+ *
+ * This is the longest thing anyone writes here, usually on a phone, and a
+ * phone evicts a backgrounded tab without asking. Losing a letter to a
+ * notification is the likeliest reason someone starts a profile and never
+ * finishes one. Cleared the moment a save succeeds, so a stored draft only
+ * ever exists for a page that was never sent.
+ */
+const STORAGE_KEY = "tummile:profile-draft";
+
+function readStoredDraft(): Partial<Draft> | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Partial<Draft>) : null;
+  } catch {
+    return null; // private window, or storage turned off
+  }
+}
+
 export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [bank, setBank] = useState<PromptBank | null>(null);
@@ -85,6 +105,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     void getPrompts().then(setBank).catch(() => undefined);
@@ -111,8 +132,25 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
           status: p.status ?? "",
         });
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        // Anything unsaved wins over what the server last heard.
+        const stored = readStoredDraft();
+        if (stored) setDraft((d) => ({ ...d, ...stored }));
+        setRestored(true);
+      });
   }, []);
+
+  // Only after the load has settled, or the empty form would overwrite the
+  // very draft it is about to restore.
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+    } catch {
+      // Storage full or refused. Losing the safety net is not worth an error.
+    }
+  }, [draft, restored]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -153,6 +191,11 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
       });
       setMissing(res.missing);
       setSaved(true);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // Nothing to do: the server has it now either way.
+      }
       onSaved?.();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");

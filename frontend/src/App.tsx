@@ -5,6 +5,7 @@ import {
   Route,
   Link,
   NavLink,
+  Navigate,
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
@@ -15,6 +16,7 @@ import {
   getMe,
   getPrompts,
   logout,
+  onUnauthorized,
   requestLink,
   verifyCode,
   verifyLink,
@@ -407,6 +409,9 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // An expired cookie should return you to the way in, not leave a refusal
+    // printed under a navigation bar you can no longer use.
+    onUnauthorized(() => setMe(null));
     void refresh();
   }, [refresh]);
 
@@ -497,6 +502,9 @@ function App() {
               }
             />
           ) : null}
+          {/* Signed in, no such page: nothing matched and the screen went
+              blank but for the weather. Send them to Read instead. */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </>
       ) : (
         <Route path="*" element={<SignIn />} />
