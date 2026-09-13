@@ -88,6 +88,11 @@ const envSchema = z.object({
   RATE_LIMIT_DISCOVERY_WINDOW_MS: z.coerce.number().default(60_000),
   RATE_LIMIT_WRITE: z.coerce.number().default(40),
   RATE_LIMIT_WRITE_WINDOW_MS: z.coerce.number().default(3_600_000),
+  // Deliberately tight. This endpoint makes the server send mail to an
+  // address the caller types, which is a spam cannon pointed at strangers
+  // if it is not capped per account.
+  RATE_LIMIT_EMAIL_CHANGE: z.coerce.number().default(3),
+  RATE_LIMIT_EMAIL_CHANGE_WINDOW_MS: z.coerce.number().default(86_400_000),
   RATE_LIMIT_REPORT: z.coerce.number().default(5),
   RATE_LIMIT_REPORT_WINDOW_MS: z.coerce.number().default(3_600_000),
 });

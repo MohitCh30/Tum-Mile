@@ -19,6 +19,7 @@ import {
 import { requireSession, requireVerified, requireProfile } from "../../middleware/auth.js";
 import { rateLimit } from "../../middleware/rate-limit.js";
 import { invalidateAllSessions } from "../../auth/session.js";
+import { requestEmailChange, confirmEmailChange } from "../../auth/email-change.js";
 import { sendEmail } from "../../services/email.js";
 import { logAudit } from "../../services/audit.js";
 import { config } from "../../config.js";
@@ -33,6 +34,19 @@ const writeLimit = {
 const deleteSchema = z.object({ confirm: z.literal("delete my account") });
 const notificationsSchema = z.object({ emailWhenWaiting: z.boolean() }).strict();
 const pauseSchema = z.object({ paused: z.boolean() }).strict();
+
+// Deliberately NOT z.string().email(): a malformed address has to reach
+// the module and get the same silent answer a good one does, rather than
+// bouncing off a 400 here and behaving differently from every other
+// address-shaped input in the app.
+const emailSchema = z.object({ email: z.string().min(3).max(254) }).strict();
+const emailConfirmSchema = z.object({ code: z.string().length(6) }).strict();
+
+const emailChangeLimit = {
+  name: "email-change",
+  max: config.RATE_LIMIT_EMAIL_CHANGE,
+  windowMs: config.RATE_LIMIT_EMAIL_CHANGE_WINDOW_MS,
+};
 
 export const accountRoutes: FastifyPluginAsync = async (app) => {
   /**
@@ -172,6 +186,58 @@ export const accountRoutes: FastifyPluginAsync = async (app) => {
         .where(eq(profiles.id, request.user!.profileId!));
 
       return { emailWhenWaiting };
+    }
+  );
+
+  /**
+   * Move the account to a different address.
+   *
+   * Two steps on purpose, and both require a live session: the person
+   * never leaves the account page, so there is no link to send, nothing to
+   * break when a mail app opens links in another browser, and no URL for
+   * anyone to imitate. See auth/email-change.ts for why the old address is
+   * always warned, including when the move cannot proceed.
+   */
+  app.post(
+    "/account/email",
+    { preHandler: [requireSession, requireVerified, rateLimit(emailChangeLimit)] },
+    async (request) => {
+      const { email } = emailSchema.parse(request.body);
+      const result = await requestEmailChange(request.user!.authUserId, email);
+
+      await logAudit({
+        actorType: "user",
+        actorId: request.user!.authUserId,
+        action: "account.email_change_requested",
+        resourceType: "auth_user",
+        resourceId: request.user!.authUserId,
+      });
+
+      // Identical whether the address was free, taken, malformed or their
+      // own. The only place the difference is recorded is the audit log.
+      return result;
+    }
+  );
+
+  app.post(
+    "/account/email/confirm",
+    { preHandler: [requireSession, requireVerified, rateLimit(emailChangeLimit)] },
+    async (request, reply) => {
+      const { code } = emailConfirmSchema.parse(request.body);
+      await confirmEmailChange(request.user!.authUserId, code);
+
+      await logAudit({
+        actorType: "user",
+        actorId: request.user!.authUserId,
+        action: "account.email_changed",
+        resourceType: "auth_user",
+        resourceId: request.user!.authUserId,
+      });
+
+      // Every session is gone, including this one. Clearing the cookie
+      // here means the browser is told the truth rather than holding a
+      // token that stopped working a moment ago.
+      return reply.clearCookie(config.SESSION_COOKIE_NAME, { path: "/" }).status(204).send();
     }
   );
 

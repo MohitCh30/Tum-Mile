@@ -223,6 +223,18 @@ export const getSentLikes = () => api<{ likes: SentLike[] }>("/likes/sent");
 export const withdrawLike = (profileId: string) =>
   api<void>(`/likes/${profileId}`, { method: "DELETE" });
 
+/**
+ * Asks to move the account. The answer is identical whether the address
+ * was free, already an account, malformed, or the one already in use —
+ * so there is nothing here to tell a caller which.
+ */
+export const requestEmailChange = (email: string) =>
+  api<{ ok: true; devCode?: string }>("/account/email", { method: "POST", body: { email } });
+
+/** On success every session ends, including this one. */
+export const confirmEmailChange = (code: string) =>
+  api<void>("/account/email/confirm", { method: "POST", body: { code } });
+
 export const getPause = () => api<{ paused: boolean }>("/account/pause");
 export const setPause = (paused: boolean) =>
   api<{ paused: boolean }>("/account/pause", { method: "PUT", body: { paused } });

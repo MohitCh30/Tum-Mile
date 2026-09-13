@@ -46,6 +46,16 @@ export const authUsers = pgTable(
     // unlimited ones.
     verificationCodeHash: text("verification_code_hash"),
     verificationCodeAttempts: integer("verification_code_attempts").notNull().default(0),
+
+    // An address change in flight. Nothing here is authoritative until the
+    // code sent to the NEW address comes back: the account answers to the
+    // old address for the whole time these columns are populated, so a
+    // half-finished change locks nobody out of anything.
+    pendingEmail: text("pending_email"),
+    pendingEmailCanonical: text("pending_email_canonical"),
+    pendingEmailCodeHash: text("pending_email_code_hash"),
+    pendingEmailExpiresAt: timestamp("pending_email_expires_at", { withTimezone: true }),
+    pendingEmailAttempts: integer("pending_email_attempts").notNull().default(0),
     isDeleted: boolean("is_deleted").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

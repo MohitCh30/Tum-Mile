@@ -5,8 +5,10 @@ import {
   deleteAccount,
   getBlocks,
   getMe,
+  confirmEmailChange,
   getNotifications,
   getPause,
+  requestEmailChange,
   setNotifications,
   setPause,
   unblockProfile,
@@ -25,6 +27,9 @@ export function Account({ onGone }: { onGone: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [noteOn, setNoteOn] = useState<boolean | null>(null);
   const [paused, setPausedState] = useState<boolean | null>(null);
+  const [newEmail, setNewEmail] = useState("");
+  const [askedCode, setAskedCode] = useState(false);
+  const [code, setCode] = useState("");
 
   async function load() {
     try {
@@ -46,6 +51,30 @@ export function Account({ onGone }: { onGone: () => void }) {
     if (noteOn === null) return;
     try {
       setNoteOn((await setNotifications(!noteOn)).emailWhenWaiting);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    }
+  }
+
+  async function askEmailChange() {
+    setError(null);
+    try {
+      await requestEmailChange(newEmail);
+      // The same screen whether that address was free, already an account,
+      // or malformed. The server does not say which, so neither does this.
+      setAskedCode(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    }
+  }
+
+  async function submitEmailCode() {
+    setError(null);
+    try {
+      await confirmEmailChange(code);
+      // Every session ended, this one included, so there is nothing left
+      // to show here.
+      onGone();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");
     }
@@ -102,6 +131,71 @@ export function Account({ onGone }: { onGone: () => void }) {
           >
             {noteOn ? "On, one note a day at most" : "Off"}
           </button>
+        </section>
+      ) : null}
+
+      {me ? (
+        <section className="stack" style={{ gap: 12 }}>
+          <h2 className="label">the address you sign in with</h2>
+          <p className="prose">
+            Currently {me.email}. Moving the account sends a code to the new address and a warning
+            to this one. Nothing changes until the code comes back — and when it does, everyone
+            signed in is signed out, including you, here.
+          </p>
+          {askedCode ? (
+            <div className="stack" style={{ gap: 10 }}>
+              <p className="prose">
+                If that address can be used, a six-digit code is on its way to it. It lasts fifteen
+                minutes.
+              </p>
+              <input
+                className="field"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="000000"
+                aria-label="the code sent to the new address"
+              />
+              <div className="row">
+                <button
+                  className="button button-quiet grow"
+                  onClick={() => {
+                    setAskedCode(false);
+                    setCode("");
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="button grow"
+                  disabled={code.trim().length !== 6}
+                  onClick={submitEmailCode}
+                >
+                  Move the account
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="stack" style={{ gap: 10 }}>
+              <input
+                className="field"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="the new address"
+                aria-label="the new address"
+              />
+              <button
+                className="button button-quiet"
+                disabled={newEmail.trim().length < 3}
+                onClick={askEmailChange}
+                style={{ alignSelf: "flex-start" }}
+              >
+                Send a code to it
+              </button>
+            </div>
+          )}
         </section>
       ) : null}
 
