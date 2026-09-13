@@ -188,7 +188,15 @@ body {
   outline-offset: 2px;
 }
 
+/* Worn by <button> and by <a>. An anchor is inline and underlined by default,
+   which turned the height into a tall box with the text stranded at the top
+   left, so the centring and the decoration are stated here rather than patched
+   at each call site. */
 .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
   height: var(--control-h);
   padding: 0 22px;
   background: var(--pane-act);

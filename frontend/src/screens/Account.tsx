@@ -119,7 +119,7 @@ export function Account({ onGone }: { onGone: () => void }) {
           Everything you wrote and every choice you made, as a file. Messages other people sent you
           are their words, not yours, so they are not in it.
         </p>
-        <a className="button" href="/api/v1/account/export" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+        <a className="button" href="/api/v1/account/export">
           Download it
         </a>
       </section>
