@@ -453,13 +453,28 @@ main { padding-bottom: 60px; }
   padding: 4px 8px;
   min-height: 24px;
   color: var(--muted-deepest);
+  position: relative;
+}
+
+/* A 44px target on a control that has to stay small. This row sits under
+   every message, so growing the box itself would loosen the whole
+   conversation by 20px a line. The reach grows; the drawing does not. */
+.reaction-add::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
 }
 
 .reaction-pick {
   background: transparent;
   border: 1px solid var(--line);
   padding: 6px 10px;
-  min-height: 36px;
+  min-height: 44px;
+  min-width: 44px;
   font-size: 15px;
   cursor: pointer;
 }
