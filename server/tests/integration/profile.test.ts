@@ -342,10 +342,18 @@ describe("the stated facts", () => {
     expect(JSON.parse(saved.body).profile.preferences.ageMin).toBe(18);
     expect(JSON.parse(saved.body).profile.preferences.ageMax).toBe(22);
 
+    // 22 to 21 is not a range. Refused outright rather than quietly
+    // re-read as 21 to 22, which would store something nobody asked for.
     const backwards = await save(actor.cookie, {
-      preferences: { ageMin: 30, ageMax: 25, distanceRadiusKm: 40, openToLongDistance: false },
+      preferences: { ageMin: 22, ageMax: 21, distanceRadiusKm: 40, openToLongDistance: false },
     });
     expect(backwards.statusCode).toBe(400);
+
+    // Nor is a band too narrow to hold anybody a preference.
+    const pinched = await save(actor.cookie, {
+      preferences: { ageMin: 20, ageMax: 22, distanceRadiusKm: 40, openToLongDistance: false },
+    });
+    expect(pinched.statusCode).toBe(400);
 
     const underage = await save(actor.cookie, {
       preferences: { ageMin: 16, ageMax: 25, distanceRadiusKm: 40, openToLongDistance: false },

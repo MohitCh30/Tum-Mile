@@ -126,25 +126,42 @@ const EMPTY: Draft = {
   ageMax: "45",
 };
 
+const AGE_FLOOR = 18;
+const AGE_CEILING = 60;
+/** The narrowest band anybody may ask for. Four years, not one. */
+const AGE_WINDOW = 4;
+
 /**
- * A half-typed range must never be able to reject the page it sits on, and
- * it must never quietly widen one either.
+ * Two handles that cannot cross, and cannot close to nothing.
  *
- * This band decides who may write to you, so an emptied box falling back
- * to "18 to 120" would take a deliberate narrowing off somebody without
- * their touching it. It falls back to what is already stored instead — the
- * page stays saveable, and the only thing that can widen the band is
- * typing a wider one. A reversed pair is read in the only order it could
- * have meant. The server enforces the same bounds either way.
+ * Typed boxes let a person enter 22 to 21, which is not a range — and the
+ * first version quietly re-read it as 21 to 22 rather than saying so,
+ * which is worse than refusing: what the page showed and what was stored
+ * were different things. Here the pair is repaired at the moment of the
+ * drag, by pushing the handle that was NOT moved, so the invalid state
+ * never exists to be displayed or saved.
+ */
+function clampAges(min: number, max: number, moved: "min" | "max") {
+  const lo = Math.min(Math.max(min, AGE_FLOOR), AGE_CEILING - AGE_WINDOW);
+  const hi = Math.max(Math.min(max, AGE_CEILING), AGE_FLOOR + AGE_WINDOW);
+  if (hi - lo >= AGE_WINDOW) return { lo, hi };
+  return moved === "min" ? { lo, hi: lo + AGE_WINDOW } : { lo: hi - AGE_WINDOW, hi };
+}
+
+/**
+ * The band as both the sliders and the save read it, so the number on
+ * screen is the number that is stored. A value that cannot be read at all
+ * — an older stored draft, a hand-edited one — falls back to what the
+ * server already holds rather than to the widest legal answer, since
+ * widening this band means letting more people write to you.
  */
 function ageRange(draft: Draft, stored: OwnProfile["preferences"]) {
   const read = (raw: string, fallback: number) => {
     const n = Math.trunc(Number(raw));
-    return Number.isFinite(n) && n >= 18 && n <= 120 ? n : fallback;
+    return Number.isFinite(n) && n >= AGE_FLOOR && n <= AGE_CEILING ? n : fallback;
   };
-  const a = read(draft.ageMin, stored.ageMin);
-  const b = read(draft.ageMax, stored.ageMax);
-  return { ageMin: Math.min(a, b), ageMax: Math.max(a, b) };
+  const { lo, hi } = clampAges(read(draft.ageMin, stored.ageMin), read(draft.ageMax, stored.ageMax), "min");
+  return { ageMin: lo, ageMax: hi };
 }
 
 const csv = (s: string) =>
@@ -245,6 +262,14 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
+
+  // Read through the same function the save uses, so the pair on screen
+  // and the pair that gets stored cannot be two different things.
+  const ages = ageRange(draft, prefs);
+  const setAges = (min: number, max: number, moved: "min" | "max") => {
+    const { lo, hi } = clampAges(min, max, moved);
+    setDraft((d) => ({ ...d, ageMin: String(lo), ageMax: String(hi) }));
+  };
 
   function toggleAnswer(promptId: string) {
     setDraft((d) => {
@@ -514,37 +539,25 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
 
         <div className="stack" style={{ gap: 6 }}>
           <span className="meta">Between these ages</span>
-          <div className="row" style={{ flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-            <label className="meta">
-              <input
-                aria-label="Youngest"
-                className="field"
-                style={{ width: "5.5rem" }}
-                type="number"
-                inputMode="numeric"
-                min={18}
-                max={120}
-                value={draft.ageMin}
-                onChange={(e) => set("ageMin", e.target.value)}
-              />
-            </label>
-            <span className="meta" aria-hidden="true">
-              to
-            </span>
-            <label className="meta">
-              <input
-                aria-label="Oldest"
-                className="field"
-                style={{ width: "5.5rem" }}
-                type="number"
-                inputMode="numeric"
-                min={18}
-                max={120}
-                value={draft.ageMax}
-                onChange={(e) => set("ageMax", e.target.value)}
-              />
-            </label>
-          </div>
+          <p className="prose" style={{ margin: 0 }}>
+            {ages.ageMin} to {ages.ageMax}
+          </p>
+          <input
+            aria-label="Youngest"
+            type="range"
+            min={AGE_FLOOR}
+            max={AGE_CEILING}
+            value={ages.ageMin}
+            onChange={(e) => setAges(Number(e.target.value), ages.ageMax, "min")}
+          />
+          <input
+            aria-label="Oldest"
+            type="range"
+            min={AGE_FLOOR}
+            max={AGE_CEILING}
+            value={ages.ageMax}
+            onChange={(e) => setAges(ages.ageMin, Number(e.target.value), "max")}
+          />
           <span className="meta">
             This works both ways. Someone outside these ages is not shown to you — and you are
             not shown to them, so they cannot write to you either.

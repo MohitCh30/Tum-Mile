@@ -27,6 +27,9 @@ const writeLimit = {
   windowMs: config.RATE_LIMIT_WRITE_WINDOW_MS,
 };
 
+/** The narrowest age band anybody may ask for, in years. */
+const MIN_AGE_WINDOW = 4;
+
 const STATUSES = [
   "single",
   "newly_single",
@@ -138,9 +141,13 @@ const profileWriteSchema = z
       .optional(),
   })
   .partial()
+  // A band narrower than this is not a preference, it is a rejection of
+  // everybody — and a reversed pair (22 to 21) is not a range at all.
+  // Both are refused here rather than quietly re-read into something the
+  // person did not ask for.
   .refine(
-    (v) => v.preferences === undefined || v.preferences.ageMin <= v.preferences.ageMax,
-    "ageMin must not exceed ageMax"
+    (v) => v.preferences === undefined || v.preferences.ageMax - v.preferences.ageMin >= MIN_AGE_WINDOW,
+    `an age range needs at least ${MIN_AGE_WINDOW} years in it`
   );
 
 type ProfileWrite = z.infer<typeof profileWriteSchema>;
