@@ -148,6 +148,10 @@ function clampAges(min: number, max: number, moved: "min" | "max") {
   return moved === "min" ? { lo, hi: lo + AGE_WINDOW } : { lo: hi - AGE_WINDOW, hi };
 }
 
+/** Where an age sits on the rail, as a percentage, for the filled span. */
+const alongRail = (age: number) =>
+  ((age - AGE_FLOOR) / (AGE_CEILING - AGE_FLOOR)) * 100;
+
 /**
  * The band as both the sliders and the save read it, so the number on
  * screen is the number that is stored. A value that cannot be read at all
@@ -538,26 +542,34 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
         </div>
 
         <div className="stack" style={{ gap: 6 }}>
-          <span className="meta">Between these ages</span>
           <p className="prose" style={{ margin: 0 }}>
-            {ages.ageMin} to {ages.ageMax}
+            Between {ages.ageMin} and {ages.ageMax}
           </p>
-          <input
-            aria-label="Youngest"
-            type="range"
-            min={AGE_FLOOR}
-            max={AGE_CEILING}
-            value={ages.ageMin}
-            onChange={(e) => setAges(Number(e.target.value), ages.ageMax, "min")}
-          />
-          <input
-            aria-label="Oldest"
-            type="range"
-            min={AGE_FLOOR}
-            max={AGE_CEILING}
-            value={ages.ageMax}
-            onChange={(e) => setAges(ages.ageMin, Number(e.target.value), "max")}
-          />
+          <div className="range">
+            <div className="range-rail" />
+            <div
+              className="range-fill"
+              style={{ left: `${alongRail(ages.ageMin)}%`, right: `${100 - alongRail(ages.ageMax)}%` }}
+            />
+            <input
+              className="range-input"
+              aria-label="Youngest"
+              type="range"
+              min={AGE_FLOOR}
+              max={AGE_CEILING}
+              value={ages.ageMin}
+              onChange={(e) => setAges(Number(e.target.value), ages.ageMax, "min")}
+            />
+            <input
+              className="range-input"
+              aria-label="Oldest"
+              type="range"
+              min={AGE_FLOOR}
+              max={AGE_CEILING}
+              value={ages.ageMax}
+              onChange={(e) => setAges(ages.ageMin, Number(e.target.value), "max")}
+            />
+          </div>
           <span className="meta">
             This works both ways. Someone outside these ages is not shown to you — and you are
             not shown to them, so they cannot write to you either.
