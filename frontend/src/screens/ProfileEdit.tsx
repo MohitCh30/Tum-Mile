@@ -97,6 +97,8 @@ type Draft = {
   diet: string;
   religion: string;
   wantsKids: string;
+  ageMin: string;
+  ageMax: string;
 };
 
 const EMPTY: Draft = {
@@ -118,7 +120,32 @@ const EMPTY: Draft = {
   diet: "",
   religion: "",
   wantsKids: "",
+  // The same defaults the column carries, so an unsaved page and a stored
+  // one say the same thing.
+  ageMin: "18",
+  ageMax: "45",
 };
+
+/**
+ * A half-typed range must never be able to reject the page it sits on, and
+ * it must never quietly widen one either.
+ *
+ * This band decides who may write to you, so an emptied box falling back
+ * to "18 to 120" would take a deliberate narrowing off somebody without
+ * their touching it. It falls back to what is already stored instead — the
+ * page stays saveable, and the only thing that can widen the band is
+ * typing a wider one. A reversed pair is read in the only order it could
+ * have meant. The server enforces the same bounds either way.
+ */
+function ageRange(draft: Draft, stored: OwnProfile["preferences"]) {
+  const read = (raw: string, fallback: number) => {
+    const n = Math.trunc(Number(raw));
+    return Number.isFinite(n) && n >= 18 && n <= 120 ? n : fallback;
+  };
+  const a = read(draft.ageMin, stored.ageMin);
+  const b = read(draft.ageMax, stored.ageMax);
+  return { ageMin: Math.min(a, b), ageMax: Math.max(a, b) };
+}
 
 const csv = (s: string) =>
   s
@@ -155,6 +182,15 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
   const [busy, setBusy] = useState(false);
   const [restored, setRestored] = useState(false);
   const [preview, setPreview] = useState<PublicProfile | null>(null);
+  // Preferences are stored as one object, so the two nobody can set yet
+  // have to travel back out untouched rather than be rewritten to their
+  // defaults every time somebody saves a page.
+  const [prefs, setPrefs] = useState<OwnProfile["preferences"]>({
+    ageMin: 18,
+    ageMax: 45,
+    distanceRadiusKm: 40,
+    openToLongDistance: false,
+  });
 
   useEffect(() => {
     void getPrompts().then(setBank).catch(() => undefined);
@@ -182,7 +218,10 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
           diet: p.diet ?? "",
           religion: p.religion ?? "",
           wantsKids: p.wantsKids ?? "",
+          ageMin: String(p.preferences?.ageMin ?? 18),
+          ageMax: String(p.preferences?.ageMax ?? 45),
         });
+        if (p.preferences) setPrefs(p.preferences);
       })
       .catch(() => undefined)
       .finally(() => {
@@ -243,6 +282,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
         diet: draft.diet || null,
         religion: draft.religion || null,
         wantsKids: draft.wantsKids || null,
+        preferences: { ...prefs, ...ageRange(draft, prefs) },
       });
       setMissing(res.missing);
       setSaved(true);
@@ -471,18 +511,65 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
             ))}
           </div>
         </div>
+
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="meta">Between these ages</span>
+          <div className="row" style={{ flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+            <label className="meta">
+              <input
+                aria-label="Youngest"
+                className="field"
+                style={{ width: "5.5rem" }}
+                type="number"
+                inputMode="numeric"
+                min={18}
+                max={120}
+                value={draft.ageMin}
+                onChange={(e) => set("ageMin", e.target.value)}
+              />
+            </label>
+            <span className="meta" aria-hidden="true">
+              to
+            </span>
+            <label className="meta">
+              <input
+                aria-label="Oldest"
+                className="field"
+                style={{ width: "5.5rem" }}
+                type="number"
+                inputMode="numeric"
+                min={18}
+                max={120}
+                value={draft.ageMax}
+                onChange={(e) => set("ageMax", e.target.value)}
+              />
+            </label>
+          </div>
+          <span className="meta">
+            This works both ways. Someone outside these ages is not shown to you — and you are
+            not shown to them, so they cannot write to you either.
+          </span>
+        </div>
       </section>
 
       <section className="stack" style={{ gap: 12 }}>
         <h2 className="label">the plain facts</h2>
         {(
           [
-            ["displayName", "Name", "text"],
+            [
+              "displayName",
+              "Name",
+              "text",
+              // This page never asks for a college or an employer, for the
+              // reason that a small circle needs very little to put a name
+              // to a page. A surname is most of that little.
+              "A first name is enough. Everyone reading can see it.",
+            ],
             ["birthDate", "Date of birth", "date"],
             ["languages", "Languages you would rather talk in", "text"],
             ["interests", "Interests, comma separated", "text"],
           ] as const
-        ).map(([key, label, type]) => (
+        ).map(([key, label, type, hint]) => (
           <label className="stack" style={{ gap: 6 }} key={key}>
             <span className="meta">{label}</span>
             <input
@@ -491,6 +578,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
               value={draft[key]}
               onChange={(e) => set(key, e.target.value)}
             />
+            {hint ? <span className="meta">{hint}</span> : null}
           </label>
         ))}
 

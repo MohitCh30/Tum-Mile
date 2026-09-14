@@ -329,6 +329,30 @@ describe("the stated facts", () => {
     expect(JSON.parse(bare.body).missing).toEqual([]);
   });
 
+  // The band is a hard filter in BOTH directions — it decides who may
+  // write to you, not only who you are shown — so the range has to be
+  // stored exactly as given and an impossible one has to be refused.
+  it("keeps an age range, and refuses one that cannot contain anybody", async () => {
+    const actor = await makeActor(app, "picky@test.local");
+
+    const saved = await save(actor.cookie, {
+      preferences: { ageMin: 18, ageMax: 22, distanceRadiusKm: 40, openToLongDistance: false },
+    });
+    expect(saved.statusCode).toBe(200);
+    expect(JSON.parse(saved.body).profile.preferences.ageMin).toBe(18);
+    expect(JSON.parse(saved.body).profile.preferences.ageMax).toBe(22);
+
+    const backwards = await save(actor.cookie, {
+      preferences: { ageMin: 30, ageMax: 25, distanceRadiusKm: 40, openToLongDistance: false },
+    });
+    expect(backwards.statusCode).toBe(400);
+
+    const underage = await save(actor.cookie, {
+      preferences: { ageMin: 16, ageMax: 25, distanceRadiusKm: 40, openToLongDistance: false },
+    });
+    expect(underage.statusCode).toBe(400);
+  });
+
   it("refuses anything the list does not contain", async () => {
     const actor = await makeActor(app, "freetext@test.local");
     expect((await save(actor.cookie, { religion: "whatever I feel like" })).statusCode).toBe(400);
