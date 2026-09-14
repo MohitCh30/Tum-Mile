@@ -125,6 +125,7 @@ export interface OwnProfile {
   status: string | null;
   diet: string | null;
   religion: string | null;
+  wantsKids: string | null;
   preferences: {
     ageMin: number;
     ageMax: number;

@@ -39,6 +39,17 @@ const GENDERS = [
   ["non-binary", "Non-binary"],
 ] as const;
 
+/**
+ * Three, deliberately. "Has children" is a fourth thing the API still
+ * accepts and still renders, but it is a different question wearing the
+ * same coat — this one is about what you want, and three answers cover it.
+ */
+const KIDS = [
+  ["want", "Wants children"],
+  ["dont", "Does not want children"],
+  ["unsure", "Not sure"],
+] as const;
+
 const DIETS = [
   ["veg", "Vegetarian"],
   ["eggetarian", "Eggetarian"],
@@ -85,6 +96,7 @@ type Draft = {
   status: string;
   diet: string;
   religion: string;
+  wantsKids: string;
 };
 
 const EMPTY: Draft = {
@@ -105,6 +117,7 @@ const EMPTY: Draft = {
   status: "",
   diet: "",
   religion: "",
+  wantsKids: "",
 };
 
 const csv = (s: string) =>
@@ -168,6 +181,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
           status: p.status ?? "",
           diet: p.diet ?? "",
           religion: p.religion ?? "",
+          wantsKids: p.wantsKids ?? "",
         });
       })
       .catch(() => undefined)
@@ -228,6 +242,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
         status: draft.status || null,
         diet: draft.diet || null,
         religion: draft.religion || null,
+        wantsKids: draft.wantsKids || null,
       });
       setMissing(res.missing);
       setSaved(true);
@@ -478,6 +493,23 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
             />
           </label>
         ))}
+
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="meta">Children</span>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            {KIDS.map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={`chip${draft.wantsKids === value ? " chip-on" : ""}`}
+                onClick={() => set("wantsKids", draft.wantsKids === value ? "" : value)}
+                aria-pressed={draft.wantsKids === value}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="stack" style={{ gap: 6 }}>
           <span className="meta">What you eat</span>

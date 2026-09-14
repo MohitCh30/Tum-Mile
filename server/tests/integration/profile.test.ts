@@ -295,7 +295,9 @@ describe("the stated facts", () => {
   it("keeps a religion from the list, and shows it the way others see it", async () => {
     const actor = await makeActor(app, "believer@test.local");
 
-    expect((await save(actor.cookie, { religion: "sikh", diet: "veg" })).statusCode).toBe(200);
+    expect(
+      (await save(actor.cookie, { religion: "sikh", diet: "veg", wantsKids: "unsure" })).statusCode
+    ).toBe(200);
 
     resetRateLimits();
     const seen = await app.inject({
@@ -306,6 +308,25 @@ describe("the stated facts", () => {
     const { profile } = JSON.parse(seen.body);
     expect(profile.religion).toBe("sikh");
     expect(profile.diet).toBe("veg");
+    expect(profile.wantsKids).toBe("unsure");
+  });
+
+  it("counts none of them toward a finished profile", async () => {
+    const actor = await makeActor(app, "spare@test.local");
+
+    // Everything optional cleared at once: a page can be complete on one
+    // line and one thing to read, and stay complete while stating nothing.
+    const bare = await save(actor.cookie, {
+      religion: null,
+      diet: null,
+      wantsKids: null,
+      status: null,
+      interests: [],
+      languages: [],
+    });
+    expect(bare.statusCode).toBe(200);
+    expect(JSON.parse(bare.body).complete).toBe(true);
+    expect(JSON.parse(bare.body).missing).toEqual([]);
   });
 
   it("refuses anything the list does not contain", async () => {
