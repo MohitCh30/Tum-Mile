@@ -51,6 +51,10 @@ export function Conversation({
   const [details, setDetails] = useState("");
   const [reported, setReported] = useState(false);
   const [tab, setTab] = useState<"talk" | "scene">("talk");
+  // A tap on a phone over a slow connection is easy to repeat before the
+  // first one has visibly done anything. Sending twice duplicates a message;
+  // leaving twice succeeds and then shows an error over a thing that worked.
+  const [busy, setBusy] = useState(false);
 
   const poll = useCallback(async () => {
     try {
@@ -77,8 +81,9 @@ export function Conversation({
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
-    if (draft.trim() === "") return;
+    if (draft.trim() === "" || busy) return;
     setError(null);
+    setBusy(true);
     try {
       await sendMessage(matchId, draft.trim());
       setDraft("");
@@ -86,6 +91,8 @@ export function Conversation({
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) setGone(true);
       else setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -102,21 +109,26 @@ export function Conversation({
   }
 
   async function block() {
-    if (!withWhom) return;
+    if (!withWhom || busy) return;
+    setBusy(true);
     try {
       await blockProfile(withWhom.id);
       onLeft();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");
+      setBusy(false);
     }
   }
 
   async function leave() {
+    if (busy) return;
+    setBusy(true);
     try {
       await leaveMatch(matchId);
       onLeft();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");
+      setBusy(false);
     }
   }
 
@@ -164,7 +176,7 @@ export function Conversation({
             Leaving ends this quietly, for both of you. {withWhom?.displayName} is not told, nothing
             of it is kept, and neither of you is barred from anything.
           </p>
-          <button className="button button-quiet" onClick={leave}>
+          <button className="button button-quiet" onClick={leave} disabled={busy}>
             Leave this conversation
           </button>
           <p className="prose">
@@ -176,7 +188,7 @@ export function Conversation({
             <button className="button button-quiet grow" onClick={() => setSafety("report")}>
               Report {withWhom?.displayName}
             </button>
-            <button className="button grow" onClick={block}>
+            <button className="button grow" onClick={block} disabled={busy}>
               Block and delete
             </button>
           </div>
@@ -296,7 +308,7 @@ export function Conversation({
           placeholder="Say something back"
           aria-label="your message"
         />
-        <button className="button" type="submit" disabled={draft.trim() === ""}>
+        <button className="button" type="submit" disabled={busy || draft.trim() === ""}>
           Send
         </button>
       </form>
