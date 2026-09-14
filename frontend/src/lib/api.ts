@@ -186,6 +186,9 @@ export interface MatchSummary {
 
 export const getPrompts = () => api<PromptBank>("/prompts");
 export const getProfile = () => api<OwnProfileResponse>("/profile");
+
+/** Yourself, assembled by the server exactly as it assembles anyone else. */
+export const getProfilePreview = () => api<{ profile: PublicProfile }>("/profile/preview");
 export const saveProfile = (patch: Record<string, unknown>) =>
   api<OwnProfileResponse>("/profile", { method: "PUT", body: patch });
 
@@ -234,6 +237,9 @@ export const requestEmailChange = (email: string) =>
 /** On success every session ends, including this one. */
 export const confirmEmailChange = (code: string) =>
   api<void>("/account/email/confirm", { method: "POST", body: { code } });
+
+/** Ends every session including this one, so treat it like signing out. */
+export const signOutEverywhere = () => api<void>("/account/sessions", { method: "DELETE" });
 
 export const getPause = () => api<{ paused: boolean }>("/account/pause");
 export const setPause = (paused: boolean) =>

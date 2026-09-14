@@ -159,6 +159,32 @@ export const profileRoutes: FastifyPluginAsync = async (app) => {
     };
   });
 
+  /**
+   * Your own profile as everybody else reads it.
+   *
+   * Built by the SAME function discovery and the inbound queue use, rather
+   * than assembled on the client from the edit form. The edit form holds a
+   * draft; this holds what is stored. In a product where the writing is
+   * the whole of you, the gap between those two is the one thing a person
+   * most needs to be able to check — and a preview that could drift from
+   * what people actually see would be worse than none.
+   *
+   * `GET /profiles/:id` deliberately refuses your own id, so this is a
+   * separate route rather than an exception carved into that rule.
+   */
+  app.get("/profile/preview", { preHandler: [requireSession, requireProfile] }, async (request) => {
+    const [me] = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.id, request.user!.profileId!))
+      .limit(1);
+    if (!me) throw new Error("NOT_FOUND");
+
+    // No distance: you are not a distance from yourself, and showing one
+    // would be inventing a reading nobody ever gets.
+    return { profile: toPublicProfile(me, null) };
+  });
+
   app.put(
     "/profile",
     { preHandler: [requireSession, requireVerified, rateLimit(writeLimit)] },

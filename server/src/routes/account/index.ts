@@ -288,6 +288,38 @@ export const accountRoutes: FastifyPluginAsync = async (app) => {
   );
 
   /**
+   * End every session, everywhere, including this one.
+   *
+   * Until now the only way to do this was to change the address, which is
+   * a transfer of ownership — far too large an action for "I left myself
+   * signed in on a machine in the lab". Signing out here signs out there.
+   *
+   * No password is asked for because there is none: holding the session is
+   * the whole of the proof, and anyone holding it could already do worse
+   * than this. It is destructive only of access, never of anything written.
+   */
+  app.delete(
+    "/account/sessions",
+    { preHandler: [requireSession, rateLimit(writeLimit)] },
+    async (request, reply) => {
+      await invalidateAllSessions(request.user!.authUserId);
+
+      await logAudit({
+        actorType: "user",
+        actorId: request.user!.authUserId,
+        action: "account.sessions_ended",
+        resourceType: "account",
+        resourceId: request.user!.authUserId,
+      });
+
+      // The cookie would otherwise stay in the browser pointing at a row
+      // that no longer exists, which reads as a mysterious signed-out state
+      // rather than a deliberate one.
+      return reply.clearCookie(config.SESSION_COOKIE_NAME, { path: "/" }).status(204).send();
+    }
+  );
+
+  /**
    * Delete the account.
    *
    * Erased: the address, every session, everything written on the profile,

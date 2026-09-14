@@ -3,10 +3,13 @@ import {
   ApiError,
   getPrompts,
   getProfile,
+  getProfilePreview,
   saveProfile,
   type OwnProfile,
   type PromptBank,
+  type PublicProfile,
 } from "../lib/api";
+import { ProfileRead } from "./ProfileRead";
 
 const FORMS: { value: string; label: string; help: string }[] = [
   { value: "letter", label: "A letter", help: "To whoever is reading. It can be short." },
@@ -106,6 +109,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [restored, setRestored] = useState(false);
+  const [preview, setPreview] = useState<PublicProfile | null>(null);
 
   useEffect(() => {
     void getPrompts().then(setBank).catch(() => undefined);
@@ -204,11 +208,53 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
     }
   }
 
+  /**
+   * Fetched rather than assembled from the draft on screen, and refetched
+   * every time it is opened. The draft is what you are typing; this is
+   * what is stored — so unsaved edits correctly do not appear in it, which
+   * is the answer to the question people are actually asking.
+   */
+  async function togglePreview() {
+    if (preview) {
+      setPreview(null);
+      return;
+    }
+    try {
+      setPreview((await getProfilePreview()).profile);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Save something first.");
+    }
+  }
+
   const oneLineLeft = (bank?.maxOneLineLength ?? 90) - draft.oneLine.length;
   const chosen = new Set(draft.answers.map((a) => a.promptId));
 
   return (
     <form className="stack" style={{ gap: 34 }} onSubmit={submit}>
+      <div className="stack" style={{ gap: 14 }}>
+        <button
+          type="button"
+          className="linkish label"
+          style={{ alignSelf: "flex-start" }}
+          onClick={togglePreview}
+        >
+          {preview ? "back to editing" : "read yourself as others do"}
+        </button>
+
+        {preview ? (
+          <div className="card stack" style={{ gap: 14 }}>
+            <p className="meta">
+              What is saved, exactly as anybody else reads it. Anything you have changed since the
+              last save is not here yet.
+            </p>
+            <ProfileRead
+              profile={preview}
+              prompts={new Map((bank?.prompts ?? []).map((p) => [p.id, p.body]))}
+            />
+          </div>
+        ) : null}
+      </div>
+
       <section className="stack" style={{ gap: 12 }}>
         <h2 className="label">one line</h2>
         <p className="prose">

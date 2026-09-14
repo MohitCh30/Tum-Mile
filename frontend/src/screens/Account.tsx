@@ -11,6 +11,7 @@ import {
   requestEmailChange,
   setNotifications,
   setPause,
+  signOutEverywhere,
   unblockProfile,
   type Me,
 } from "../lib/api";
@@ -96,6 +97,17 @@ export function Account({ onGone }: { onGone: () => void }) {
   async function unblock(profileId: string) {
     await unblockProfile(profileId);
     await load();
+  }
+
+  async function endSessions() {
+    setError(null);
+    try {
+      await signOutEverywhere();
+      // This browser was one of them, so there is nothing left to show.
+      onGone();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    }
   }
 
   async function remove() {
@@ -248,6 +260,17 @@ export function Account({ onGone }: { onGone: () => void }) {
         <a className="button" href="/api/v1/account/export">
           Download it
         </a>
+      </section>
+
+      <section className="stack" style={{ gap: 12 }}>
+        <h2 className="label">signed in somewhere you are not</h2>
+        <p className="prose">
+          Ends every session, on every machine, including this one. Use it if you left yourself
+          signed in somewhere you no longer are. Nothing you wrote is touched.
+        </p>
+        <button className="button button-quiet" onClick={endSessions} style={{ alignSelf: "flex-start" }}>
+          Sign out everywhere
+        </button>
       </section>
 
       <section className="stack" style={{ gap: 12 }}>
