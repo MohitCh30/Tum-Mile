@@ -310,6 +310,9 @@ export const profileRoutes: FastifyPluginAsync = async (app) => {
         profile: {
           ...saved,
           age: ageFrom(saved.birthDate),
+          // The same shape GET answers with, so a save can be read back
+          // without a second round trip to learn whether it took.
+          hasLocation: saved.locationGeohash !== null,
           locationGeohash: undefined,
           // 384 numbers nobody needs in a browser.
           embedding: undefined,

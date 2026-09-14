@@ -145,7 +145,11 @@ export const profiles = pgTable(
       .default({
         ageMin: 18,
         ageMax: 45,
-        distanceRadiusKm: 40,
+        // The line past which you cannot meet without it being a journey.
+        // 40 was the original guess and was never once applied, because no
+        // client ever sent a location; it would have quietly cut off
+        // somebody 50km away who is not remotely long distance.
+        distanceRadiusKm: 70,
         openToLongDistance: false,
       }),
     privacy: jsonb("privacy")

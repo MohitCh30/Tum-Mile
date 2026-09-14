@@ -84,7 +84,7 @@ export async function makeActor(
       preferences: {
         ageMin: options.ageMin ?? 18,
         ageMax: options.ageMax ?? 60,
-        distanceRadiusKm: options.distanceRadiusKm ?? 40,
+        distanceRadiusKm: options.distanceRadiusKm ?? 70,
         openToLongDistance: options.openToLongDistance ?? true,
       },
       privacy: { showDistance: true },

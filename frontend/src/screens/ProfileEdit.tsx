@@ -209,9 +209,24 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
   const [prefs, setPrefs] = useState<OwnProfile["preferences"]>({
     ageMin: 18,
     ageMax: 45,
-    distanceRadiusKm: 40,
+    distanceRadiusKm: 70,
     openToLongDistance: false,
   });
+  // A separate jsonb column from preferences, and written whole in the same
+  // way, so it needs the same round trip: hand back what is stored, or
+  // saving this page would silently reset it to the default.
+  const [privacy, setPrivacy] = useState<OwnProfile["privacy"]>({ showDistance: true });
+
+  // Where the location stands, as the server last reported it. Never a
+  // coordinate: there is no coordinate to have.
+  const [place, setPlace] = useState<{ has: boolean; at: string | null }>({ has: false, at: null });
+  // What the browser said when it was asked. Null until it is asked.
+  const [placeNote, setPlaceNote] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
+  // Creating a profile needs a name, a birth date and a gender, so a save
+  // carrying only a location is refused. Do not offer the button until
+  // there is a row to attach it to.
+  const [hasProfile, setHasProfile] = useState(false);
 
   useEffect(() => {
     void getPrompts().then(setBank).catch(() => undefined);
@@ -220,6 +235,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
         setMissing(res.missing);
         const p: OwnProfile | null = res.profile;
         if (!p) return;
+        setHasProfile(true);
         setDraft({
           displayName: p.displayName ?? "",
           birthDate: p.birthDate ? p.birthDate.slice(0, 10) : "",
@@ -243,6 +259,8 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
           ageMax: String(p.preferences?.ageMax ?? 45),
         });
         if (p.preferences) setPrefs(p.preferences);
+        if (p.privacy) setPrivacy(p.privacy);
+        setPlace({ has: p.hasLocation, at: p.lastLocationUpdate });
       })
       .catch(() => undefined)
       .finally(() => {
@@ -269,6 +287,10 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
 
   // Read through the same function the save uses, so the pair on screen
   // and the pair that gets stored cannot be two different things.
+  const days =
+    place.at === null ? null : Math.floor((Date.now() - new Date(place.at).getTime()) / 86_400_000);
+  const setAgo = days === null ? null : days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
+
   const ages = ageRange(draft, prefs);
   const setAges = (min: number, max: number, moved: "min" | "max") => {
     const { lo, hi } = clampAges(min, max, moved);
@@ -282,6 +304,66 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
       if (d.answers.length >= (bank?.maxAnswers ?? 3)) return d;
       return { ...d, answers: [...d.answers, { promptId, answer: "" }] };
     });
+  }
+
+  /**
+   * Asked for once, deliberately, and saved on the spot rather than carried
+   * in the draft — a position does not belong in a store that survives in
+   * the browser, even reduced to a cell five kilometres across.
+   *
+   * Every way this can fail says so, here, next to the button. A control
+   * that can be refused and then goes on looking ordinary is worse than no
+   * control at all: the person believes distance is working when it is not.
+   */
+  function useMyLocation() {
+    setPlaceNote(null);
+    if (!navigator.geolocation) {
+      setPlaceNote("This browser will not give a location. Distance simply will not apply to you.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        void (async () => {
+          try {
+            const res = await saveProfile({
+              location: { lat: pos.coords.latitude, lon: pos.coords.longitude },
+            });
+            setMissing(res.missing);
+            setPlace({
+              has: res.profile?.hasLocation ?? true,
+              at: res.profile?.lastLocationUpdate ?? null,
+            });
+          } catch (err) {
+            setPlaceNote(err instanceof ApiError ? err.message : "That did not save.");
+          } finally {
+            setLocating(false);
+          }
+        })();
+      },
+      (err) => {
+        setLocating(false);
+        setPlaceNote(
+          err.code === err.PERMISSION_DENIED
+            ? "Not shared, which costs you nothing: distance stops applying to you in both directions."
+            : "Your device could not work out where it is. Distance will not apply to you."
+        );
+      },
+      // A five-kilometre cell does not need a precise fix, and asking for
+      // one spends battery on accuracy thrown away in the same request.
+      { enableHighAccuracy: false, timeout: 15_000, maximumAge: 600_000 }
+    );
+  }
+
+  async function forgetLocation() {
+    setPlaceNote(null);
+    try {
+      const res = await saveProfile({ location: null });
+      setMissing(res.missing);
+      setPlace({ has: false, at: null });
+    } catch (err) {
+      setPlaceNote(err instanceof ApiError ? err.message : "That did not save.");
+    }
   }
 
   async function submit(e: React.FormEvent) {
@@ -312,6 +394,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
         religion: draft.religion || null,
         wantsKids: draft.wantsKids || null,
         preferences: { ...prefs, ...ageRange(draft, prefs) },
+        privacy,
       });
       setMissing(res.missing);
       setSaved(true);
@@ -573,6 +656,81 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
           <span className="meta">
             This works both ways. Someone outside these ages is not shown to you — and you are
             not shown to them, so they cannot write to you either.
+          </span>
+        </div>
+
+        {hasProfile ? (
+          <div className="stack" style={{ gap: 6 }}>
+            <span className="meta">how far away you are</span>
+            {place.has ? (
+              <>
+                <p className="prose" style={{ margin: 0 }}>
+                  Stored as an area about 5 km across{setAgo ? `, set ${setAgo}` : ""}.
+                </p>
+                <button
+                  type="button"
+                  className="chip"
+                  style={{ alignSelf: "flex-start" }}
+                  onClick={() => void forgetLocation()}
+                >
+                  Forget it
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="prose" style={{ margin: 0 }}>
+                  Optional. Your position is rounded to an area about 5 km across before it is
+                  saved, and the exact point is never kept. Without it, distance does not apply to
+                  you at all — you are hidden from nobody by it and nobody is hidden from you.
+                </p>
+                <button
+                  type="button"
+                  className="button"
+                  style={{ alignSelf: "flex-start" }}
+                  onClick={useMyLocation}
+                  disabled={locating}
+                >
+                  {locating ? "Asking…" : "Use my location"}
+                </button>
+              </>
+            )}
+            {/* Said here rather than at the foot of the page, where somebody
+                standing at this control would never see it. */}
+            {placeNote ? <span className="meta">{placeNote}</span> : null}
+          </div>
+        ) : null}
+
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="meta">someone further away</span>
+          <button
+            type="button"
+            className={`chip${prefs.openToLongDistance ? " chip-on" : ""}`}
+            aria-pressed={prefs.openToLongDistance}
+            style={{ alignSelf: "flex-start" }}
+            onClick={() => setPrefs((p) => ({ ...p, openToLongDistance: !p.openToLongDistance }))}
+          >
+            {prefs.openToLongDistance ? "Any distance" : "Near enough to meet"}
+          </button>
+          <span className="meta">
+            Off, you are shown people close enough to meet without it being a journey, and only
+            they are shown you. On, distance stops counting in either direction.
+          </span>
+        </div>
+
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="meta">showing how far away you are</span>
+          <button
+            type="button"
+            className={`chip${privacy.showDistance ? " chip-on" : ""}`}
+            aria-pressed={privacy.showDistance}
+            style={{ alignSelf: "flex-start" }}
+            onClick={() => setPrivacy((p) => ({ ...p, showDistance: !p.showDistance }))}
+          >
+            {privacy.showDistance ? "People see a rough distance" : "Hidden"}
+          </button>
+          <span className="meta">
+            A band — "about 5 km away" — never a number and never a place. Hiding it does not
+            change who you are shown: that is the setting above.
           </span>
         </div>
       </section>

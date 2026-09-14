@@ -133,6 +133,9 @@ export interface OwnProfile {
     openToLongDistance: boolean;
   };
   privacy: { showDistance: boolean };
+  /** Whether a coarse cell is stored. Never the cell itself. */
+  hasLocation: boolean;
+  lastLocationUpdate: string | null;
 }
 
 export interface OwnProfileResponse {

@@ -44,6 +44,75 @@ beforeEach(async () => {
   resetRateLimits();
 });
 
+// Roughly 111 km to the degree of latitude. The cells are ~5 km across and
+// distance is measured centre to centre, so these are deliberately nowhere
+// near the 70 km line.
+const MUMBAI = { lat: 19.076, lon: 72.877 };
+const NEAR = { lat: 19.436, lon: 72.877 }; // ~40 km
+const FAR = { lat: 19.976, lon: 72.877 }; // ~100 km
+
+// The distance filter had no coverage at all: every actor the helper builds
+// opts into long distance, so the branch never executed. It is two-sided in
+// the same way the age band is — BOTH people's radius has to be satisfied,
+// so one person opting in is not enough.
+describe("how far apart two people are", () => {
+  const near = { ...asMan, openToLongDistance: false };
+  const far = { ...asWoman, openToLongDistance: false };
+
+  it("shows two people 40 km apart, which the old 40 km default would have cut off", async () => {
+    const viewer = await makeActor(app, "v@test.local", { ...near, location: MUMBAI });
+    await makeActor(app, "c@test.local", { ...far, location: NEAR });
+
+    expect((await discover(viewer)).body.profile?.displayName).toBe("c");
+  });
+
+  it("hides two people 100 km apart from EACH OTHER", async () => {
+    const viewer = await makeActor(app, "v@test.local", { ...near, location: MUMBAI });
+    const other = await makeActor(app, "c@test.local", { ...far, location: FAR });
+
+    expect((await discover(viewer)).body.profile).toBeNull();
+    resetRateLimits();
+    expect((await discover(other)).body.profile).toBeNull();
+  });
+
+  it("needs both of them to open up, not one", async () => {
+    const viewer = await makeActor(app, "v@test.local", {
+      ...near,
+      location: MUMBAI,
+      openToLongDistance: true,
+    });
+    await makeActor(app, "c@test.local", { ...far, location: FAR });
+
+    // One person's willingness cannot carry the pairing, exactly as one
+    // person's age preference cannot.
+    expect((await discover(viewer)).body.profile).toBeNull();
+  });
+
+  it("lets them through once both have", async () => {
+    const viewer = await makeActor(app, "v@test.local", {
+      ...near,
+      location: MUMBAI,
+      openToLongDistance: true,
+    });
+    await makeActor(app, "c@test.local", {
+      ...far,
+      location: FAR,
+      openToLongDistance: true,
+    });
+
+    expect((await discover(viewer)).body.profile?.displayName).toBe("c");
+  });
+
+  // Refusing the browser prompt has to cost nothing, or the control is a
+  // punishment for declining rather than an option.
+  it("filters nobody when one of them never shared a location", async () => {
+    const viewer = await makeActor(app, "v@test.local", { ...near, location: MUMBAI });
+    await makeActor(app, "c@test.local", { ...far, location: null });
+
+    expect((await discover(viewer)).body.profile?.displayName).toBe("c");
+  });
+});
+
 describe("discovery", () => {
   it("shows one eligible person, with the budget stated as a fact", async () => {
     const viewer = await makeActor(app, "v@test.local", asMan);
