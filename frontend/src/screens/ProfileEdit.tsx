@@ -126,6 +126,15 @@ const EMPTY: Draft = {
   ageMax: "45",
 };
 
+/**
+ * What a refusal is told. It is not an error and must not read like one:
+ * declining costs nothing, because `eligible()` skips the distance check
+ * when either side has no location.
+ */
+const NOT_SHARED =
+  "Not shared, which costs you nothing: distance stops applying to you in both directions.";
+const POSITION_FAILED = "Your device could not work out where it is. Distance will not apply to you.";
+
 const AGE_FLOOR = 18;
 const AGE_CEILING = 60;
 /** The narrowest band anybody may ask for. Four years, not one. */
@@ -322,9 +331,32 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
       return;
     }
     setLocating(true);
+
+    // The page keeps its own clock rather than trusting the browser to
+    // speak.
+    //
+    // Refusing the prompt was reported as showing nothing at all. Some
+    // browsers answer a block by calling NEITHER callback — the request
+    // simply never returns — which left the button on "Asking…" forever and
+    // said nothing, the exact dead control this was written to avoid. The
+    // browser's own `timeout` does not help: it governs how long the fix
+    // may take, not how long somebody stares at a prompt, and it is not
+    // honoured at all when the call never starts.
+    let answered = false;
+    const settle = (note: string | null) => {
+      if (answered) return;
+      answered = true;
+      window.clearTimeout(giveUp);
+      setLocating(false);
+      if (note !== null) setPlaceNote(note);
+    };
+    const giveUp = window.setTimeout(() => settle(NOT_SHARED), 20_000);
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        settle(null);
         void (async () => {
+          setLocating(true);
           try {
             const res = await saveProfile({
               location: { lat: pos.coords.latitude, lon: pos.coords.longitude },
@@ -341,14 +373,12 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
           }
         })();
       },
-      (err) => {
-        setLocating(false);
-        setPlaceNote(
-          err.code === err.PERMISSION_DENIED
-            ? "Not shared, which costs you nothing: distance stops applying to you in both directions."
-            : "Your device could not work out where it is. Distance will not apply to you."
-        );
-      },
+      // `err.PERMISSION_DENIED` is read off the error itself rather than a
+      // global, and a browser that hands back something that is not a real
+      // GeolocationPositionError would make that comparison quietly false —
+      // so anything that is not plainly a position failure is treated as a
+      // refusal, which is the answer that costs the person nothing.
+      (err) => settle(err.code === 2 ? POSITION_FAILED : NOT_SHARED),
       // A five-kilometre cell does not need a precise fix, and asking for
       // one spends battery on accuracy thrown away in the same request.
       { enableHighAccuracy: false, timeout: 15_000, maximumAge: 600_000 }
@@ -696,7 +726,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
             )}
             {/* Said here rather than at the foot of the page, where somebody
                 standing at this control would never see it. */}
-            {placeNote ? <span className="meta">{placeNote}</span> : null}
+            {placeNote ? <p className="notice">{placeNote}</p> : null}
           </div>
         ) : null}
 
