@@ -5,6 +5,7 @@ import {
   getPrompts,
   sendLike,
   sendPass,
+  undoPass,
   type Budget,
   type DiscoveryResponse,
 } from "../lib/api";
@@ -26,6 +27,8 @@ export function Discovery() {
   const [message, setMessage] = useState("");
   const [budget, setBudget] = useState<Budget | null>(null);
   const [matched, setMatched] = useState<string | null>(null);
+  // The person just passed on, kept only long enough to take it back.
+  const [mistap, setMistap] = useState<{ id: string; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -69,9 +72,32 @@ export function Discovery() {
 
   async function pass() {
     if (!state?.profile) return;
+    const passed = { id: state.profile.id, name: state.profile.displayName };
     setBusy(true);
     try {
-      await sendPass(state.profile.id);
+      await sendPass(passed.id);
+      setMistap(passed);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * For a finger that landed in the wrong place. The server only allows it
+   * for a pass made moments ago, so this cannot become a way to revisit a
+   * decision — and it deliberately does not put them back on the screen,
+   * because who comes next is whoever ranks first, not whoever you were
+   * last looking at.
+   */
+  async function undo() {
+    if (!mistap) return;
+    setBusy(true);
+    try {
+      await undoPass(mistap.id);
+      setMistap(null);
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");
@@ -161,6 +187,15 @@ export function Discovery() {
 
   return (
     <div className="stack" style={{ gap: 34 }}>
+      {mistap ? (
+        <p className="meta">
+          You passed on {mistap.name}.{" "}
+          <button className="linkish meta" onClick={undo} disabled={busy}>
+            that was a mistake
+          </button>
+        </p>
+      ) : null}
+
       <ProfileRead
         profile={state.profile}
         prompts={prompts}

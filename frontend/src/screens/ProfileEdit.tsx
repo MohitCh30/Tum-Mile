@@ -39,6 +39,34 @@ const GENDERS = [
   ["non-binary", "Non-binary"],
 ] as const;
 
+const DIETS = [
+  ["veg", "Vegetarian"],
+  ["eggetarian", "Eggetarian"],
+  ["non_veg", "Eats meat"],
+  ["jain", "Jain"],
+  ["vegan", "Vegan"],
+] as const;
+
+/**
+ * A list rather than a text box, so that the same answer is the same
+ * value. Saying nothing is the default and stays a real answer — there is
+ * no "prefer not to say" chip because not choosing one already is that.
+ */
+const RELIGIONS = [
+  ["hindu", "Hindu"],
+  ["muslim", "Muslim"],
+  ["christian", "Christian"],
+  ["sikh", "Sikh"],
+  ["jain", "Jain"],
+  ["buddhist", "Buddhist"],
+  ["parsi", "Parsi"],
+  ["jewish", "Jewish"],
+  ["spiritual", "Spiritual, not religious"],
+  ["atheist", "Atheist"],
+  ["agnostic", "Agnostic"],
+  ["other", "Something else"],
+] as const;
+
 type Draft = {
   displayName: string;
   birthDate: string;
@@ -55,6 +83,8 @@ type Draft = {
   interests: string;
   languages: string;
   status: string;
+  diet: string;
+  religion: string;
 };
 
 const EMPTY: Draft = {
@@ -73,6 +103,8 @@ const EMPTY: Draft = {
   interests: "",
   languages: "",
   status: "",
+  diet: "",
+  religion: "",
 };
 
 const csv = (s: string) =>
@@ -134,6 +166,8 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
           interests: (p.interests ?? []).join(", "),
           languages: (p.languages ?? []).join(", "),
           status: p.status ?? "",
+          diet: p.diet ?? "",
+          religion: p.religion ?? "",
         });
       })
       .catch(() => undefined)
@@ -192,6 +226,8 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
         interests: csv(draft.interests),
         languages: csv(draft.languages),
         status: draft.status || null,
+        diet: draft.diet || null,
+        religion: draft.religion || null,
       });
       setMissing(res.missing);
       setSaved(true);
@@ -442,6 +478,41 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
             />
           </label>
         ))}
+
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="meta">What you eat</span>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            {DIETS.map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={`chip${draft.diet === value ? " chip-on" : ""}`}
+                onClick={() => set("diet", draft.diet === value ? "" : value)}
+                aria-pressed={draft.diet === value}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="meta">Religion, if you want to say</span>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            {RELIGIONS.map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={`chip${draft.religion === value ? " chip-on" : ""}`}
+                onClick={() => set("religion", draft.religion === value ? "" : value)}
+                aria-pressed={draft.religion === value}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="meta">Leave it alone and it says nothing, which is a real answer.</span>
+        </div>
       </section>
 
       {missing.length > 0 ? (

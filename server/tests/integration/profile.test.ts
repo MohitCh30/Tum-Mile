@@ -280,3 +280,54 @@ describe("reading someone else's profile", () => {
     expect(res.statusCode).toBe(404);
   });
 });
+
+/**
+ * Religion is a choice from a fixed list rather than a text box, because
+ * it is a field that may be filtered on — and a filter over free text
+ * silently drops everyone who spelled the same answer differently.
+ */
+describe("the stated facts", () => {
+  const save = (cookie: string, patch: Record<string, unknown>) => {
+    resetRateLimits();
+    return app.inject({ method: "PUT", url: `${API}/profile`, headers: { cookie }, payload: patch });
+  };
+
+  it("keeps a religion from the list, and shows it the way others see it", async () => {
+    const actor = await makeActor(app, "believer@test.local");
+
+    expect((await save(actor.cookie, { religion: "sikh", diet: "veg" })).statusCode).toBe(200);
+
+    resetRateLimits();
+    const seen = await app.inject({
+      method: "GET",
+      url: `${API}/profile/preview`,
+      headers: { cookie: actor.cookie },
+    });
+    const { profile } = JSON.parse(seen.body);
+    expect(profile.religion).toBe("sikh");
+    expect(profile.diet).toBe("veg");
+  });
+
+  it("refuses anything the list does not contain", async () => {
+    const actor = await makeActor(app, "freetext@test.local");
+    expect((await save(actor.cookie, { religion: "whatever I feel like" })).statusCode).toBe(400);
+    expect((await save(actor.cookie, { diet: "pescatarian" })).statusCode).toBe(400);
+  });
+
+  it("treats saying nothing as a real answer rather than a gap", async () => {
+    const actor = await makeActor(app, "quiet@test.local");
+
+    await save(actor.cookie, { religion: "hindu" });
+    expect((await save(actor.cookie, { religion: null })).statusCode).toBe(200);
+
+    resetRateLimits();
+    const own = await app.inject({
+      method: "GET",
+      url: `${API}/profile`,
+      headers: { cookie: actor.cookie },
+    });
+    // Still complete: an unstated religion has never been a missing field.
+    expect(JSON.parse(own.body).profile.religion).toBeNull();
+    expect(JSON.parse(own.body).complete).toBe(true);
+  });
+});

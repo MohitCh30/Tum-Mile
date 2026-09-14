@@ -123,6 +123,8 @@ export interface OwnProfile {
   interests: string[];
   languages: string[];
   status: string | null;
+  diet: string | null;
+  religion: string | null;
   preferences: {
     ageMin: number;
     ageMax: number;
@@ -200,6 +202,13 @@ export const sendLike = (profileId: string, quotedLine: string, message: string)
   });
 export const sendPass = (profileId: string) =>
   api<void>("/passes", { method: "POST", body: { profileId } });
+
+/**
+ * Takes back a pass made seconds ago. The server refuses an old one, so
+ * this is a mistap being corrected, never a decision being revisited.
+ */
+export const undoPass = (profileId: string) =>
+  api<void>(`/passes/${profileId}`, { method: "DELETE" });
 
 export const getInbound = () => api<{ likes: InboundLike[]; budget: Budget }>("/likes/inbound");
 export const getMatches = () => api<{ matches: MatchSummary[] }>("/matches");

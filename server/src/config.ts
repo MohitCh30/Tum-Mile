@@ -70,6 +70,10 @@ const envSchema = z.object({
   BUDGET_INBOUND_PER_DAY: z.coerce.number().default(9),
   INBOUND_EXPIRY_DAYS: z.coerce.number().default(5),
 
+  // How long a pass can be taken back. Long enough to notice a finger in
+  // the wrong place, far too short to be a second look at a decision.
+  PASS_UNDO_SECONDS: z.coerce.number().default(120),
+
   // Rate limits
   // Two tiers. The per-ADDRESS limit stops one person asking for twenty
   // links; the per-IP one stops a machine working through a list.

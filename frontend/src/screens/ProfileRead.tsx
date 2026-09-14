@@ -14,6 +14,29 @@ const CURRENTLY_ORDER: [keyof PublicProfile["currently"], string][] = [
   ["thinking", "Thinking"],
 ];
 
+const DIET_LABEL: Record<string, string> = {
+  veg: "Vegetarian",
+  non_veg: "Eats meat",
+  eggetarian: "Eggetarian",
+  jain: "Jain",
+  vegan: "Vegan",
+};
+
+const RELIGION_LABEL: Record<string, string> = {
+  hindu: "Hindu",
+  muslim: "Muslim",
+  christian: "Christian",
+  sikh: "Sikh",
+  jain: "Jain",
+  buddhist: "Buddhist",
+  parsi: "Parsi",
+  jewish: "Jewish",
+  spiritual: "Spiritual, not religious",
+  atheist: "Atheist",
+  agnostic: "Agnostic",
+  other: "Something else",
+};
+
 const STATUS_LABEL: Record<string, string> = {
   single: "Single",
   newly_single: "Newly single",
@@ -76,8 +99,8 @@ export function ProfileRead({
             ? "Has children"
             : null,
     profile.languages.length > 0 ? profile.languages.join(", ") : null,
-    profile.diet,
-    profile.religion,
+    profile.diet ? (DIET_LABEL[profile.diet] ?? profile.diet) : null,
+    profile.religion ? (RELIGION_LABEL[profile.religion] ?? profile.religion) : null,
   ].filter((f): f is string => Boolean(f));
 
   return (
@@ -135,6 +158,19 @@ export function ProfileRead({
               <div className="answer">{quotable(answer.answer, `a-${answer.promptId}`)}</div>
             </div>
           ))}
+        </section>
+      ) : null}
+
+      {profile.interests.length > 0 ? (
+        <section className="stack" style={{ gap: 10 }}>
+          <h2 className="label">Interested in</h2>
+          <ul className="facts">
+            {profile.interests.map((interest) => (
+              <li className="meta" key={interest}>
+                {interest}
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 

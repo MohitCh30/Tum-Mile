@@ -487,6 +487,46 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
   );
 
   /**
+   * A finger in the wrong place, not a change of mind.
+   *
+   * "Not tonight" and "Write to —" sit next to each other, full width, on
+   * a phone. A pass is silent and permanent, so the only way to discover
+   * you mistapped is that somebody you were part-way through reading is
+   * simply gone. This undoes that and only that: after
+   * PASS_UNDO_SECONDS the pass stands. Anything longer would be a second
+   * go at a decision you actually made, which is the thing the daily
+   * budget exists to prevent.
+   *
+   * Keyed on the passed PROFILE id, as `DELETE /likes/:id` is: the pair is
+   * unique, and a client is never told the row's own id.
+   */
+  app.delete<{ Params: { id: string } }>(
+    "/passes/:id",
+    { preHandler: [requireSession, requireProfile, rateLimit(writeLimit)] },
+    async (request, reply) => {
+      const viewerId = request.user!.profileId!;
+      const cutoff = new Date(Date.now() - config.PASS_UNDO_SECONDS * 1000);
+
+      // Not a pass, not yours, or too old to be a mistap — the delete
+      // simply matches nothing, and all three answer the same 404.
+      const undone = await db
+        .delete(passes)
+        .where(
+          and(
+            eq(passes.passerProfileId, viewerId),
+            eq(passes.passedProfileId, request.params.id),
+            gte(passes.createdAt, cutoff)
+          )
+        )
+        .returning({ id: passes.id });
+
+      if (undone.length === 0) throw new Error("NOT_FOUND");
+
+      return reply.status(204).send();
+    }
+  );
+
+  /**
    * Who reached for you. At most nine surface a day, chosen BY SCORE
    * rather than by arrival order — so a backlog cannot bury the person you
    * would have wanted under whoever happened to arrive first. Anything

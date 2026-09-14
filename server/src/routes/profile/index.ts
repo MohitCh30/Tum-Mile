@@ -38,6 +38,28 @@ const STATUSES = [
 ] as const;
 
 /**
+ * Fixed, so that a filter over this field means something. "Not stated"
+ * is the absence of a value rather than a member of the list — it is a
+ * real answer, and storing it as null keeps it from ever being ranked.
+ * There is deliberately no caste field, and none of this is a category
+ * anyone is sorted by.
+ */
+const RELIGIONS = [
+  "hindu",
+  "muslim",
+  "christian",
+  "sikh",
+  "jain",
+  "buddhist",
+  "parsi",
+  "jewish",
+  "spiritual",
+  "atheist",
+  "agnostic",
+  "other",
+] as const;
+
+/**
  * The complete set of fields a person may write on their own profile.
  *
  * Anything absent is unreachable from the API by construction — there is
@@ -93,8 +115,12 @@ const profileWriteSchema = z
     wantsKids: z.enum(["want", "dont", "unsure", "have"]).nullable(),
     diet: z.enum(["veg", "non_veg", "eggetarian", "jain", "vegan"]).nullable(),
     languages: z.array(z.string().trim().min(1).max(40)).max(8),
-    // null means "not stated", which is a real answer and not a gap.
-    religion: z.string().trim().max(40).nullable(),
+    // A choice, not a text box. Free text here would produce a hundred
+    // spellings of four answers, and this is a field that may be filtered
+    // on — a filter over free text silently drops people who wrote the
+    // same thing differently. null means "not stated", which is a real
+    // answer and not a gap.
+    religion: z.enum(RELIGIONS).nullable(),
 
     preferences: z.object({
       ageMin: z.number().int().min(MINIMUM_AGE).max(120),
