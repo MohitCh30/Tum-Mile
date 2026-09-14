@@ -383,6 +383,15 @@ function Matches() {
       {matches.map((match) => (
         <section className="card stack" style={{ gap: 18 }} key={match.id}>
           <ProfileRead profile={match.with} prompts={prompts} />
+          {/* The list is ordered by this, newest first. It is the only
+              way to learn somebody answered, since nothing announces it. */}
+          <p className="meta">
+            {match.lastAt === null
+              ? "Nothing written yet."
+              : match.theirTurn
+                ? `${match.with.displayName} wrote last.`
+                : "You wrote last."}
+          </p>
           <button className="button" onClick={() => setOpen(match.id)}>
             Write to {match.with.displayName}
           </button>

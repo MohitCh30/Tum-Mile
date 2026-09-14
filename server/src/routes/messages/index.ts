@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, messages, messageReactions, profiles } from "../../storage/db.js";
 import { requireSession, requireProfile } from "../../middleware/auth.js";
@@ -49,21 +49,41 @@ export const messageRoutes: FastifyPluginAsync = async (app) => {
 
       // (created_at, id) as an ordered pair: exact, and stable when two
       // messages share a timestamp.
-      const rows = await db
-        .select()
-        .from(messages)
-        .where(
-          after
-            ? and(
+      // The NEWEST two hundred, not the oldest.
+      //
+      // An ascending order with a limit returned the first two hundred
+      // messages a pair ever exchanged, and the screen refetches the whole
+      // thread on every poll rather than paging — so once a conversation
+      // passed two hundred it froze on its own beginning while sending
+      // carried on working. Both people write into a thread neither can
+      // see, and nothing anywhere says so.
+      //
+      // Newest-first then reversed keeps the window on the end people are
+      // actually in. Anything older than the last two hundred is out of
+      // reach, which is a known ceiling rather than a silent stall, and
+      // the cost of having no pagination.
+      const rows = after
+        ? await db
+            .select()
+            .from(messages)
+            .where(
+              and(
                 eq(messages.matchId, request.params.id),
                 sql`(${messages.createdAt}, ${messages.id}) > (
                   select m.created_at, m.id from messages m where m.id = ${after}
                 )`
               )
-            : eq(messages.matchId, request.params.id)
-        )
-        .orderBy(asc(messages.createdAt), asc(messages.id))
-        .limit(200);
+            )
+            .orderBy(asc(messages.createdAt), asc(messages.id))
+            .limit(200)
+        : (
+            await db
+              .select()
+              .from(messages)
+              .where(eq(messages.matchId, request.params.id))
+              .orderBy(desc(messages.createdAt), desc(messages.id))
+              .limit(200)
+          ).reverse();
 
       const reactions =
         rows.length > 0

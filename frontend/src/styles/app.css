@@ -346,6 +346,12 @@ a:hover { color: var(--lamp); }
 
 .nav {
   gap: 20px;
+  /* Six items at 12px need about 380px; a 360px phone offers 308 inside the
+     gutter, and `.scene` clips rather than scrolls — so the last one or two
+     ran off the edge with no way to reach them. A second line is cheaper
+     than a menu. */
+  flex-wrap: wrap;
+  row-gap: 10px;
   margin-top: 22px;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--line-soft);

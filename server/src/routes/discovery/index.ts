@@ -665,20 +665,51 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
           : [];
       const byId = new Map(others.map((p) => [p.id, p]));
 
+      // When each conversation last moved, and who moved it.
+      //
+      // The list was ordered by when you matched and carried no sign of
+      // activity at all. Nothing in this product notifies, so opening every
+      // conversation one at a time was the only way to discover that
+      // somebody had answered — the cost of quiet landing on the wrong
+      // person. Saying who spoke last is not a read receipt: a read receipt
+      // tells THEM that YOU looked. This is a fact about your own list that
+      // you would learn by opening it anyway.
+      const spoken = (await (rows.length > 0
+        ? db.execute(sql`
+            select distinct on (match_id) match_id, created_at, sender_profile_id
+            from ${messages}
+            where ${inArray(messages.matchId, rows.map((m) => m.id))}
+            order by match_id, created_at desc, id desc
+          `)
+        : Promise.resolve({ rows: [] }))) as unknown as {
+        rows: { match_id: string; created_at: Date; sender_profile_id: string }[];
+      };
+      const lastSpoken = new Map(spoken.rows.map((r) => [r.match_id, r]));
+
       return {
-        matches: rows.flatMap((match) => {
-          const otherId = match.profileAId === viewerId ? match.profileBId : match.profileAId;
-          const other = byId.get(otherId);
-          if (!other) return [];
-          const km = distanceKm(viewer.locationGeohash, other.locationGeohash);
-          return [
-            {
-              id: match.id,
-              since: match.createdAt,
-              with: toPublicProfile(other, other.privacy.showDistance ? distanceBand(km) : null, now),
-            },
-          ];
-        }),
+        matches: rows
+          .flatMap((match) => {
+            const otherId = match.profileAId === viewerId ? match.profileBId : match.profileAId;
+            const other = byId.get(otherId);
+            if (!other) return [];
+            const km = distanceKm(viewer.locationGeohash, other.locationGeohash);
+            const last = lastSpoken.get(match.id);
+            return [
+              {
+                id: match.id,
+                since: match.createdAt,
+                // Null means nobody has said anything yet, which is worth
+                // showing on its own: a match is a door, not a conversation.
+                lastAt: last ? last.created_at : null,
+                theirTurn: last ? last.sender_profile_id !== viewerId : false,
+                with: toPublicProfile(other, other.privacy.showDistance ? distanceBand(km) : null, now),
+              },
+            ];
+          })
+          .sort(
+            (x, y) =>
+              new Date(y.lastAt ?? y.since).getTime() - new Date(x.lastAt ?? x.since).getTime()
+          ),
       };
     }
   );

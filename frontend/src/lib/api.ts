@@ -184,6 +184,10 @@ export interface InboundLike {
 export interface MatchSummary {
   id: string;
   since: string;
+  /** When anyone last wrote here, or null while nobody has. */
+  lastAt: string | null;
+  /** Whether the last thing said was theirs. Not a read receipt. */
+  theirTurn: boolean;
   with: PublicProfile;
 }
 

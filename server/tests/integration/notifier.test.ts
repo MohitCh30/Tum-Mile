@@ -101,6 +101,18 @@ describe("the opt-in note", () => {
     expect(await sendDigests(later(DAY * 2))).toBe(0);
   });
 
+  // Matching copies neither opening letter into the conversation, so a
+  // new match is an empty room none of the other clauses can see.
+  it("counts a match that nobody has written in yet", async () => {
+    const { a, b } = await pair();
+    await optIn(a);
+    await like(a, b);
+    resetRateLimits();
+    await like(b, a);
+
+    expect(await sendDigests(later(1000))).toBe(1);
+  });
+
   it("refuses anything but the one setting", async () => {
     const { b } = await pair();
     const res = await app.inject({

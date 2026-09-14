@@ -67,8 +67,9 @@ export async function notifyModerator(): Promise<number> {
  * The opt-in daily note. Returns how many were sent.
  *
  * "Something waiting" means, since the last note: a message from someone
- * you are still matched with, a letter (a like) still pending for you, a
- * scene proposed to you, or a line written to you in a scene. Anything
+ * you are still matched with, a new match nobody has written in yet, a
+ * letter (a like) still pending for you, a scene proposed to you, or a
+ * line written to you in a scene. Anything
  * from a block or an ended match does not count — those are already gone.
  */
 export async function sendDigests(now = new Date()): Promise<number> {
@@ -84,6 +85,15 @@ export async function sendDigests(now = new Date()): Promise<number> {
         and ${matches.unmatchedAt} is null
         and ${messages.senderProfileId} <> ${me}
         and ${messages.createdAt} > ${since}
+    )
+    or exists (
+      -- A match with nothing said in it yet. Matching copies neither
+      -- opening letter into the conversation, so a new match is an empty
+      -- room that none of the other clauses can see.
+      select 1 from ${matches}
+      where (${matches.profileAId} = ${me} or ${matches.profileBId} = ${me})
+        and ${matches.unmatchedAt} is null
+        and ${matches.createdAt} > ${since}
     )
     or exists (
       select 1 from ${likes}

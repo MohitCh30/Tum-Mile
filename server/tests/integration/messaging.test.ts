@@ -208,6 +208,58 @@ describe("messaging", () => {
     expect(JSON.stringify(event)).not.toContain("my number is there");
   });
 
+  // A limit with an ascending order handed back the FIRST two hundred
+  // messages, so a pair who passed that saw their own beginning forever
+  // while sending kept working — a conversation neither could read.
+  it("shows the newest two hundred, not the oldest", async () => {
+    const { a, b, matchId } = await matchedPair();
+
+    const base = Date.now() - 300 * 60_000;
+    await db.insert(messages).values(
+      Array.from({ length: 205 }, (_, i) => ({
+        matchId,
+        senderProfileId: i % 2 === 0 ? a.profileId : b.profileId,
+        body: `line ${i}`,
+        createdAt: new Date(base + i * 60_000),
+      }))
+    );
+
+    resetRateLimits();
+    const body = JSON.parse((await read(a, matchId)).body);
+    const lines = body.messages.map((m: { body: string }) => m.body);
+
+    expect(lines).toHaveLength(200);
+    // Still oldest-first on screen, but the window sits at the end.
+    expect(lines[0]).toBe("line 5");
+    expect(lines[199]).toBe("line 204");
+    expect(lines).not.toContain("line 0");
+  });
+
+  // Nothing in this product notifies, so the list itself has to carry the
+  // only sign that somebody answered. Saying who spoke last is not a read
+  // receipt — a read receipt tells THEM that YOU looked.
+  it("orders matches by what happened last, and says who spoke", async () => {
+    const { a, b, matchId } = await matchedPair();
+    const list = (actor: Actor) =>
+      app.inject({ method: "GET", url: `${API}/matches`, headers: { cookie: actor.cookie } });
+
+    resetRateLimits();
+    const fresh = JSON.parse((await list(a)).body).matches[0];
+    expect(fresh.lastAt).toBeNull();
+    expect(fresh.theirTurn).toBe(false);
+
+    await send(b, matchId, "still awake?");
+
+    resetRateLimits();
+    const hers = JSON.parse((await list(a)).body).matches[0];
+    expect(hers.lastAt).not.toBeNull();
+    expect(hers.theirTurn).toBe(true);
+
+    // The same message, from the other side, is your own.
+    resetRateLimits();
+    expect(JSON.parse((await list(b)).body).matches[0].theirTurn).toBe(false);
+  });
+
   it("has no route that would accept an attachment", async () => {
     const { a, matchId } = await matchedPair();
     const res = await send(a, matchId, "look at this");
