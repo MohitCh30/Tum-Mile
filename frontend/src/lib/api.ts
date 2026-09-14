@@ -288,7 +288,10 @@ export const reportProfile = (input: {
   profileId: string;
   reason: ReportReason;
   details?: string;
+  /** The conversation it is about, if any — captures their messages. */
   matchId?: string;
+  /** The unanswered letter it is about, if any — captures what they wrote. */
+  likeId?: string;
 }) => api<{ id: string }>("/reports", { method: "POST", body: input });
 
 /* ── account ──────────────────────────────────────────────────── */

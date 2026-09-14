@@ -9,6 +9,7 @@ import {
   type DiscoveryResponse,
 } from "../lib/api";
 import { ProfileRead } from "./ProfileRead";
+import { Safety } from "../components/Safety";
 
 /**
  * One person at a time.
@@ -220,6 +221,15 @@ export function Discovery() {
               : `${budget.remaining} of ${budget.limit} left today`}
           </p>
         ) : null}
+
+        {/* Passing removes them from your view and tells nobody anything,
+            which is right for "not for me" and useless for a profile that
+            should not be here at all. */}
+        <Safety
+          profileId={state.profile.id}
+          name={state.profile.displayName}
+          onBlocked={() => void load()}
+        />
       </div>
     </div>
   );

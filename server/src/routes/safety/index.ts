@@ -37,6 +37,16 @@ const reportSchema = z.object({
   details: z.string().trim().max(1000).optional(),
   /** Optional: the conversation the report is about, for evidence. */
   matchId: z.string().min(1).max(40).optional(),
+  /**
+   * Optional: the letter the report is about, for evidence.
+   *
+   * Before a match there is no conversation to cite, but there IS something
+   * written — the opening message a stranger sent with their like. That is
+   * the only thing they could have said to you, so it is the only evidence
+   * a report at this stage can have. Without this a letter report reaches
+   * the moderator as a reason with nothing attached.
+   */
+  likeId: z.string().min(1).max(40).optional(),
 });
 
 export const safetyRoutes: FastifyPluginAsync = async (app) => {
@@ -193,7 +203,7 @@ export const safetyRoutes: FastifyPluginAsync = async (app) => {
         messageId: string;
         body: string;
         at: string;
-        source: "message" | "scene";
+        source: "message" | "scene" | "letter";
       }[] = [];
 
       if (input.matchId) {
@@ -247,6 +257,32 @@ export const safetyRoutes: FastifyPluginAsync = async (app) => {
             at: t.createdAt.toISOString(),
             source: "scene" as const,
           })),
+        ];
+      }
+
+      if (input.likeId) {
+        const [letter] = await db
+          .select()
+          .from(likes)
+          .where(eq(likes.id, input.likeId))
+          .limit(1);
+
+        // Same rule as a conversation: you may only submit something that
+        // was written TO you, BY the person you are reporting.
+        if (!letter || letter.likedProfileId !== me || letter.likerProfileId !== reported.id) {
+          throw new Error("NOT_FOUND");
+        }
+
+        // The quoted line is theirs only in the sense that they chose it —
+        // the words are the reporter's own, so only the message they wrote
+        // is taken.
+        evidence = [
+          {
+            messageId: letter.id,
+            body: letter.openingMessage,
+            at: letter.createdAt.toISOString(),
+            source: "letter" as const,
+          },
         ];
       }
 

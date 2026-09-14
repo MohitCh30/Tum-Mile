@@ -472,7 +472,9 @@ export const reports = pgTable(
     // moment of reporting or it is gone. Nothing else may read this.
     evidence: jsonb("evidence")
       // `source` is absent on reports filed before scenes were captured.
-      .$type<{ messageId: string; body: string; at: string; source?: "message" | "scene" }[]>()
+      .$type<
+        { messageId: string; body: string; at: string; source?: "message" | "scene" | "letter" }[]
+      >()
       .notNull()
       .default([]),
     status: text("status").notNull().default("submitted"),

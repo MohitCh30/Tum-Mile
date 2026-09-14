@@ -1,27 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ApiError,
-  blockProfile,
   getMessages,
   getReactions,
   leaveMatch,
   react,
-  reportProfile,
   sendMessage,
   unreact,
   type Message,
-  type ReportReason,
 } from "../lib/api";
 import { usePoll } from "../lib/usePoll";
+import { Safety } from "../components/Safety";
 import { Scenes } from "./Scenes";
-
-const REASONS: { value: ReportReason; label: string }[] = [
-  { value: "harassment", label: "Harassment" },
-  { value: "scam", label: "Asking for money" },
-  { value: "spam", label: "Spam" },
-  { value: "deception", label: "Not who they say they are" },
-  { value: "other", label: "Something else" },
-];
 
 const POLL_MS = 4000;
 
@@ -46,10 +36,6 @@ export function Conversation({
   const [error, setError] = useState<string | null>(null);
   const [gone, setGone] = useState(false);
   const [pickerFor, setPickerFor] = useState<string | null>(null);
-  const [safety, setSafety] = useState<"none" | "menu" | "report">("none");
-  const [reason, setReason] = useState<ReportReason>("harassment");
-  const [details, setDetails] = useState("");
-  const [reported, setReported] = useState(false);
   const [tab, setTab] = useState<"talk" | "scene">("talk");
   // A tap on a phone over a slow connection is easy to repeat before the
   // first one has visibly done anything. Sending twice duplicates a message;
@@ -108,18 +94,6 @@ export function Conversation({
     }
   }
 
-  async function block() {
-    if (!withWhom || busy) return;
-    setBusy(true);
-    try {
-      await blockProfile(withWhom.id);
-      onLeft();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong.");
-      setBusy(false);
-    }
-  }
-
   async function leave() {
     if (busy) return;
     setBusy(true);
@@ -129,18 +103,6 @@ export function Conversation({
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");
       setBusy(false);
-    }
-  }
-
-  async function submitReport(e: React.FormEvent) {
-    e.preventDefault();
-    if (!withWhom) return;
-    try {
-      await reportProfile({ profileId: withWhom.id, reason, details, matchId });
-      setReported(true);
-      setSafety("none");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong.");
     }
   }
 
@@ -165,76 +127,26 @@ export function Conversation({
           ← everyone
         </button>
         <div className="name">{withWhom?.displayName ?? ""}</div>
-        <button className="linkish label" onClick={() => setSafety(safety === "none" ? "menu" : "none")}>
-          leave or report
-        </button>
       </div>
 
-      {safety === "menu" ? (
-        <div className="card stack" style={{ gap: 14 }}>
+      {withWhom ? (
+        <Safety
+          profileId={withWhom.id}
+          name={withWhom.displayName}
+          matchId={matchId}
+          label="leave or report"
+          onBlocked={onLeft}
+        >
           <p className="prose">
-            Leaving ends this quietly, for both of you. {withWhom?.displayName} is not told, nothing
+            Leaving ends this quietly, for both of you. {withWhom.displayName} is not told, nothing
             of it is kept, and neither of you is barred from anything.
           </p>
           <button className="button button-quiet" onClick={leave} disabled={busy}>
             Leave this conversation
           </button>
-          <p className="prose">
-            If something was wrong rather than merely over, report it first — the messages are kept
-            as evidence at that moment, and not after. Blocking also ends it, and additionally stops
-            them reaching you again.
-          </p>
-          <div className="row">
-            <button className="button button-quiet grow" onClick={() => setSafety("report")}>
-              Report {withWhom?.displayName}
-            </button>
-            <button className="button grow" onClick={block} disabled={busy}>
-              Block and delete
-            </button>
-          </div>
-        </div>
+        </Safety>
       ) : null}
 
-      {safety === "report" ? (
-        <form className="card stack" style={{ gap: 14 }} onSubmit={submitReport}>
-          <div className="label">what happened</div>
-          <div className="row" style={{ flexWrap: "wrap" }}>
-            {REASONS.map((r) => (
-              <button
-                type="button"
-                key={r.value}
-                className={`chip${reason === r.value ? " chip-on" : ""}`}
-                onClick={() => setReason(r.value)}
-                aria-pressed={reason === r.value}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-          <textarea
-            className="field field-multi"
-            rows={3}
-            maxLength={1000}
-            value={details}
-            onChange={(e) => setDetails(e.target.value)}
-            placeholder="Anything you want to add. Optional."
-            aria-label="details"
-          />
-          <p className="meta">
-            They are never told, and never told it was you.
-          </p>
-          <div className="row">
-            <button type="button" className="button button-quiet grow" onClick={() => setSafety("none")}>
-              Cancel
-            </button>
-            <button type="submit" className="button grow">
-              Send the report
-            </button>
-          </div>
-        </form>
-      ) : null}
-
-      {reported ? <p className="notice">Reported. Nothing is shown to them.</p> : null}
 
       <div className="row nav" style={{ marginTop: 0 }}>
         {(["talk", "scene"] as const).map((which) => (

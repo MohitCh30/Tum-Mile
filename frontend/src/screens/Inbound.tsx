@@ -10,6 +10,7 @@ import {
   type SentLike,
 } from "../lib/api";
 import { ProfileRead } from "./ProfileRead";
+import { Safety } from "../components/Safety";
 
 /**
  * Who reached for you. Nine a day at most, chosen by fit rather than by
@@ -152,6 +153,16 @@ function Waiting() {
               Read {like.from.displayName}
             </button>
           )}
+
+          {/* The one place a stranger writes to you unasked, so the one
+              place these are least optional. Blocking here also clears the
+              letter: the server declines any pending like either way. */}
+          <Safety
+            profileId={like.from.id}
+            name={like.from.displayName}
+            likeId={like.id}
+            onBlocked={load}
+          />
         </section>
       ))}
       {error ? <p className="notice notice-bad">{error}</p> : null}
