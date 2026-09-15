@@ -62,6 +62,12 @@ const envSchema = z.object({
 
   // Text affinity. Off in tests: loading a model would make every suite
   // wait on it, and the score is designed to be correct without it.
+  // Where the built frontend lives, served from this same process so the
+  // app and the API share one origin: the session cookie stays first-party
+  // and CORS never enters the picture. Empty means JSON only, which is what
+  // the tests and `npm run dev` want — vite serves the frontend there.
+  FRONTEND_DIST: z.string().default(""),
+
   EMBEDDINGS_ENABLED: boolish(true),
   EMBEDDINGS_CACHE_DIR: z.string().default("./.models"),
 

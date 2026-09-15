@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
+import fastifyStatic from "@fastify/static";
 import { config, isProd } from "./config.js";
 import { securityHeaders } from "./middleware/security-headers.js";
 import { setupErrorHandler } from "./middleware/error-handler.js";
@@ -39,6 +40,13 @@ export function buildApp() {
 
   app.addHook("onSend", securityHeaders);
   setupErrorHandler(app);
+
+  // The built frontend, from this same process. One origin for the app and
+  // the API means the session cookie stays first-party and CORS never
+  // applies to a real visitor. Empty in dev and test, where vite serves it.
+  if (config.FRONTEND_DIST !== "") {
+    app.register(fastifyStatic, { root: config.FRONTEND_DIST, index: false, wildcard: false });
+  }
 
   app.get("/health", async () => ({ status: "ok" }));
   app.register(authRoutes, { prefix: "/api/v1" });

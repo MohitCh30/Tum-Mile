@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { ZodError } from "zod";
+import { config } from "../config.js";
 
 /**
  * Errors are thrown as bare Errors whose MESSAGE is the code. The client
@@ -51,7 +52,21 @@ export function setupErrorHandler(app: FastifyInstance): void {
       .send({ error: { code: "INTERNAL_ERROR", message: CODES.INTERNAL_ERROR.message } });
   });
 
-  app.setNotFoundHandler((_request, reply) => {
+  app.setNotFoundHandler((request, reply) => {
+    // A deep link into the single-page app — /you, /matches — is not a
+    // missing resource: the router resolves it in the browser, and only
+    // the browser knows that. Narrow on purpose: a GET, outside /api/,
+    // from something that asked for HTML. Anything else, a mistyped API
+    // path included, still answers with the same JSON 404 as a resource
+    // that exists and is not yours.
+    if (
+      config.FRONTEND_DIST !== "" &&
+      request.method === "GET" &&
+      !request.url.startsWith("/api/") &&
+      (request.headers.accept ?? "").includes("text/html")
+    ) {
+      return reply.type("text/html").sendFile("index.html");
+    }
     reply.status(404).send({ error: { code: "NOT_FOUND", message: CODES.NOT_FOUND.message } });
   });
 }
