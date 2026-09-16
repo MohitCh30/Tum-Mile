@@ -79,10 +79,22 @@ export function Privacy() {
 
       <Section title="what the machine does with your writing">
         <p className="prose">
-          To decide which letters waiting for you to surface first, the words on your page are
-          turned into numbers by a model that runs on the same computer as everything else. Your
-          writing is not sent anywhere to do this. Your messages are never used for it, and neither
-          are the facts you state.
+          Nothing, at the moment. When more letters are waiting than a day will show you, the ones
+          that surface first are chosen by a published score built from your answers to the
+          questions, your interests, the languages you read in, age and rough distance. None of that
+          reads your writing; it is arithmetic on things you filled in, and the weights it uses are
+          written down in the open source rather than tuned quietly.
+        </p>
+        <p className="prose">
+          There was a step that did read it — the words on your page turned into numbers by a model
+          running on this same computer, so that two people who write alike surface to each other.
+          It is switched off. The model needs more memory than this machine has left over, and
+          buying a larger one to reorder a queue this short would be a strange thing to spend money
+          on. If it comes back, this page says so before it does.
+        </p>
+        <p className="prose">
+          What was true of it then is what will be true of it again: your writing is not sent
+          anywhere, your messages are never used for it, and neither are the facts you state.
         </p>
       </Section>
 
