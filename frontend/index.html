@@ -7,6 +7,34 @@
     <meta name="description" content="A place where people are read, not looked at." />
     <meta name="theme-color" content="#0a1416" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <!--
+      What a link to this app looks like when somebody shares it. Without
+      these, WhatsApp and Twitter render the bare URL — no title, no
+      sentence — which for a product whose whole argument is the writing
+      is the worst possible first impression.
+
+      The URL is absolute because a crawler has no page to resolve a
+      relative one against. There is deliberately no og:image: every
+      image here would be a picture of a product that has no pictures,
+      and a card with a title and a line of text is honest about what is
+      on the other end of the link.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Tum Mile" />
+    <meta property="og:title" content="Tum Mile" />
+    <meta
+      property="og:description"
+      content="A place where people are read, not looked at. No photographs, no swiping — profiles are what someone wrote, and a like has to quote a line of it."
+    />
+    <meta property="og:url" content="https://tummile.mohitchdev.me/" />
+    <meta property="og:locale" content="en_IN" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Tum Mile" />
+    <meta
+      name="twitter:description"
+      content="A place where people are read, not looked at. No photographs, no swiping — profiles are what someone wrote, and a like has to quote a line of it."
+    />
   </head>
   <body>
     <div id="root"></div>

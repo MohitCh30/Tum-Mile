@@ -55,15 +55,32 @@ export function setupErrorHandler(app: FastifyInstance): void {
   app.setNotFoundHandler((request, reply) => {
     // A deep link into the single-page app — /you, /matches — is not a
     // missing resource: the router resolves it in the browser, and only
-    // the browser knows that. Narrow on purpose: a GET, outside /api/,
-    // from something that asked for HTML. Anything else, a mistyped API
-    // path included, still answers with the same JSON 404 as a resource
-    // that exists and is not yours.
+    // the browser knows that. Still narrow: outside /api/, a method that
+    // asks for a page rather than changing one, and a path that is not
+    // plainly a file. A mistyped API path, and any POST, still answer
+    // with the same JSON 404 as a resource that exists and is not yours.
+    //
+    // `Accept: text/html` was the original test and was too narrow to
+    // survive being shared. It is what a browser sends and what almost
+    // nothing else does: `facebookexternalhit` (WhatsApp, Facebook,
+    // Instagram) and `Twitterbot` send `*/*` and were handed a JSON 404
+    // for the homepage, so a link to this app previewed as a bare URL.
+    // HEAD was refused outright, which is how an uptime monitor decides
+    // a site is down. Neither was a decision anybody made; both fell out
+    // of a condition written for browsers only.
+    const accept = request.headers.accept ?? "";
+    const wantsPage = accept.includes("text/html") || accept === "" || accept.includes("*/*");
+    // A request for /assets/index-abc.js that reached here is a missing
+    // FILE, and answering it with the app shell would turn a broken
+    // deploy into a blank page and a console error about unexpected
+    // token '<'. SPA routes have no extension; files do.
+    const looksLikeFile = /\.[a-z0-9]+$/i.test(request.url.split("?")[0] ?? "");
     if (
       config.FRONTEND_DIST !== "" &&
-      request.method === "GET" &&
+      (request.method === "GET" || request.method === "HEAD") &&
       !request.url.startsWith("/api/") &&
-      (request.headers.accept ?? "").includes("text/html")
+      !looksLikeFile &&
+      wantsPage
     ) {
       return reply.type("text/html").sendFile("index.html");
     }
