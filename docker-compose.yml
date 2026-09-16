@@ -1,5 +1,9 @@
 version: "3.8"
 
+# Credentials come from the environment, never from this file. Compose reads
+# them out of `.env` beside this file; see `.env.example` for the names. A
+# literal password here is a published password the moment the repo is.
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -7,13 +11,13 @@ services:
     ports:
       - "127.0.0.1:5434:5432"
     environment:
-      POSTGRES_USER: tummile
-      POSTGRES_PASSWORD: REPLACE_ME
-      POSTGRES_DB: tummile
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tummile -d tummile"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 2s
       timeout: 5s
       retries: 5
@@ -22,7 +26,7 @@ services:
     image: axllent/mailpit:latest
     restart: unless-stopped
     ports:
-      - "127.0.0.1:1025:1025"   # SMTP — matches SMTP_PORT default in server/src/config.ts
+      - "127.0.0.1:1025:1025"   # SMTP, matches SMTP_PORT default in server/src/config.ts
       - "127.0.0.1:8025:8025"   # web inbox
     environment:
       MP_MAX_MESSAGES: 500
