@@ -138,10 +138,10 @@ export function Discovery() {
         </a>
       </div>
     ) : (
-      <p className="notice notice-bad">{error}</p>
+      <p className="notice notice-bad" role="status">{error}</p>
     );
   }
-  if (!state) return <p className="notice">Looking…</p>;
+  if (!state) return <p className="notice" role="status">Looking…</p>;
 
   if (!state.profile) {
     return (
@@ -234,7 +234,7 @@ export function Discovery() {
           <p className="label">choose a line to answer</p>
         )}
 
-        {error ? <p className="notice notice-bad">{error}</p> : null}
+        {error ? <p className="notice notice-bad" role="status">{error}</p> : null}
 
         <div className="row">
           <button className="button button-quiet grow" onClick={pass} disabled={busy}>

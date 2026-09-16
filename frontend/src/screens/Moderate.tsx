@@ -116,7 +116,7 @@ export function Moderate() {
   }
 
   if (cases === null) {
-    return error ? <p className="notice notice-bad">{error}</p> : <p className="notice">Loading…</p>;
+    return error ? <p className="notice notice-bad" role="status">{error}</p> : <p className="notice" role="status">Loading…</p>;
   }
 
   return (
@@ -130,8 +130,8 @@ export function Moderate() {
         </p>
       </div>
 
-      {error ? <p className="notice notice-bad">{error}</p> : null}
-      {notice ? <p className="notice">{notice}</p> : null}
+      {error ? <p className="notice notice-bad" role="status">{error}</p> : null}
+      {notice ? <p className="notice" role="status">{notice}</p> : null}
 
       <ul className="stack" style={{ gap: 16, listStyle: "none", margin: 0, padding: 0 }}>
         {cases.map((c) => (

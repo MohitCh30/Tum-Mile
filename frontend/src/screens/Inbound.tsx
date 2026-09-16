@@ -76,8 +76,8 @@ function Waiting() {
     );
   }
 
-  if (error && !likes) return <p className="notice notice-bad">{error}</p>;
-  if (!likes) return <p className="notice">Looking…</p>;
+  if (error && !likes) return <p className="notice notice-bad" role="status">{error}</p>;
+  if (!likes) return <p className="notice" role="status">Looking…</p>;
 
   if (likes.length === 0) {
     return (
@@ -165,7 +165,7 @@ function Waiting() {
           />
         </section>
       ))}
-      {error ? <p className="notice notice-bad">{error}</p> : null}
+      {error ? <p className="notice notice-bad" role="status">{error}</p> : null}
     </div>
   );
 }
@@ -208,8 +208,8 @@ function SentLikes() {
     }
   }
 
-  if (error && !sent) return <p className="notice notice-bad">{error}</p>;
-  if (!sent) return <p className="notice">Looking…</p>;
+  if (error && !sent) return <p className="notice notice-bad" role="status">{error}</p>;
+  if (!sent) return <p className="notice" role="status">Looking…</p>;
 
   if (sent.length === 0) {
     return (
@@ -244,7 +244,7 @@ function SentLikes() {
           </button>
         </section>
       ))}
-      {error ? <p className="notice notice-bad">{error}</p> : null}
+      {error ? <p className="notice notice-bad" role="status">{error}</p> : null}
     </div>
   );
 }

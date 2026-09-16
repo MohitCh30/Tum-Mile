@@ -60,7 +60,7 @@ export function Scenes({ matchId, withWhom }: { matchId: string; withWhom: strin
     }
   }
 
-  if (!scenes) return <p className="notice">Looking…</p>;
+  if (!scenes) return <p className="notice" role="status">Looking…</p>;
 
   const open = scenes.find((s) => ["proposed", "playing", "letters"].includes(s.status));
   const finished = scenes.filter((s) => s.status === "finished");
@@ -97,7 +97,7 @@ export function Scenes({ matchId, withWhom }: { matchId: string; withWhom: strin
             </button>
           </div>
         ))}
-        {error ? <p className="notice notice-bad">{error}</p> : null}
+        {error ? <p className="notice notice-bad" role="status">{error}</p> : null}
       </div>
     );
   }
@@ -126,7 +126,7 @@ export function Scenes({ matchId, withWhom }: { matchId: string; withWhom: strin
         </div>
       )}
 
-      {error ? <p className="notice notice-bad">{error}</p> : null}
+      {error ? <p className="notice notice-bad" role="status">{error}</p> : null}
 
       {finished.length > 0 ? (
         <section className="stack" style={{ gap: 18 }}>
@@ -260,7 +260,7 @@ function OpenScene({
           <div className="label">the scene is over</div>
           <p className="prose">{scene.premise.letterPrompt}</p>
           {scene.youHaveWritten ? (
-            <p className="notice">Yours is written. Waiting for {withWhom}.</p>
+            <p className="notice" role="status">Yours is written. Waiting for {withWhom}.</p>
           ) : (
             <>
               <textarea

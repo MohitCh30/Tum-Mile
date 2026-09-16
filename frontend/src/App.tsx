@@ -173,7 +173,7 @@ function SignIn() {
 
         {sent ? (
           <div className="stack" style={{ gap: 26 }}>
-            <p className="notice">
+            <p className="notice" role="status">
               If that address can be written to, an email is on its way with a link and a
               six-digit code. Either works once, for the next fifteen minutes.
             </p>
@@ -196,7 +196,7 @@ function SignIn() {
               <button className="button" type="submit" disabled={checking || code.length !== 6}>
                 {checking ? "Checking…" : "Sign in"}
               </button>
-              {codeError ? <p className="notice notice-bad">{codeError}</p> : null}
+              {codeError ? <p className="notice notice-bad" role="status">{codeError}</p> : null}
             </form>
 
             <button
@@ -213,7 +213,7 @@ function SignIn() {
             </button>
 
             {devUrl ? (
-              <p className="notice">
+              <p className="notice" role="status">
                 Local development: <a href={devUrl}>open the link</a>
                 {devCode ? <>, or type {devCode}</> : null}, or read it in the{" "}
                 <a href="http://localhost:8025" target="_blank" rel="noreferrer">
@@ -247,11 +247,14 @@ function SignIn() {
               {busy ? "Sending…" : "Send me a link"}
             </button>
             {checkFailed ? (
-              <p className="notice notice-bad">
+              <p className="notice notice-bad" role="status">
                 The check that keeps scripts out could not load. Reload the page and try again.
               </p>
             ) : null}
-            {error ? <p className="notice notice-bad">{error}</p> : null}
+            {error ? <p className="notice notice-bad" role="status">{error}</p> : null}
+            {/* Standing explanation, not a status: it is on screen from the
+                start and never changes, so a live region would be a lie
+                about it and `role="status"` the wrong thing to call it. */}
             <p className="notice" style={{ color: "var(--muted)" }}>
               No password to forget, and nothing to remember. We only ever ask for an address.
             </p>
@@ -316,13 +319,13 @@ function Verify({ onSignedIn }: { onSignedIn: () => void }) {
       <div className="grow" style={{ display: "flex", alignItems: "center" }}>
         {error ? (
           <div className="stack">
-            <p className="notice notice-bad">{error}</p>
-            <p className="notice">
+            <p className="notice notice-bad" role="status">{error}</p>
+            <p className="notice" role="status">
               <a href="/">Ask for another one.</a>
             </p>
           </div>
         ) : (
-          <p className="notice">Letting you in…</p>
+          <p className="notice" role="status">Letting you in…</p>
         )}
       </div>
     </Scene>
@@ -365,7 +368,7 @@ function Matches() {
     );
   }
 
-  if (!matches) return <p className="notice">Looking…</p>;
+  if (!matches) return <p className="notice" role="status">Looking…</p>;
 
   if (matches.length === 0) {
     return (

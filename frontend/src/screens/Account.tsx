@@ -315,7 +315,7 @@ export function Account({ onGone }: { onGone: () => void }) {
           </button>
         )}
 
-        {error ? <p className="notice notice-bad">{error}</p> : null}
+        {error ? <p className="notice notice-bad" role="status">{error}</p> : null}
       </section>
 
       <p className="meta">

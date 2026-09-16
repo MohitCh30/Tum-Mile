@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ApiError,
   getMessages,
@@ -41,6 +41,20 @@ export function Conversation({
   // first one has visibly done anything. Sending twice duplicates a message;
   // leaving twice succeeds and then shows an error over a thing that worked.
   const [busy, setBusy] = useState(false);
+  // A screen reader is told about changes to a live region, not about the
+  // region arriving already full. The thread mounts empty and the first
+  // poll drops up to two hundred messages into it, so switching the region
+  // on before that happens would read the entire conversation aloud — a
+  // worse failure than the silence it is meant to fix. This turns on in an
+  // effect AFTER the first fill has been committed, which leaves exactly
+  // the additions a person wants announced: the ones that arrive while
+  // they are sitting there.
+  const [announcing, setAnnouncing] = useState(false);
+  const filled = useRef(false);
+
+  useEffect(() => {
+    if (filled.current && !announcing) setAnnouncing(true);
+  }, [messages, announcing]);
 
   const poll = useCallback(async () => {
     try {
@@ -54,6 +68,8 @@ export function Conversation({
       const next = await getMessages(matchId);
       if (next.with) setWithWhom(next.with);
       setMessages(next.messages);
+      // The thread has been delivered once; anything after this is new.
+      filled.current = true;
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) setGone(true);
     }
@@ -167,7 +183,11 @@ export function Conversation({
 
       {tab === "talk" ? (
       <>
-      <ol className="conversation">
+      <ol
+        className="conversation"
+        aria-live={announcing ? "polite" : "off"}
+        aria-relevant="additions"
+      >
         {messages.map((message) => (
           <li key={message.id} className={message.mine ? "said-by-me" : "said-by-them"}>
             <div className="bubble">{message.body}</div>
@@ -209,7 +229,7 @@ export function Conversation({
         </p>
       ) : null}
 
-      {error ? <p className="notice notice-bad">{error}</p> : null}
+      {error ? <p className="notice notice-bad" role="status">{error}</p> : null}
 
       <form className="row" onSubmit={send}>
         <input

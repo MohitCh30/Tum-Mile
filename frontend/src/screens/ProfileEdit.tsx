@@ -726,7 +726,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
             )}
             {/* Said here rather than at the foot of the page, where somebody
                 standing at this control would never see it. */}
-            {placeNote ? <p className="notice">{placeNote}</p> : null}
+            {placeNote ? <p className="notice" role="status">{placeNote}</p> : null}
           </div>
         ) : null}
 
@@ -849,7 +849,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
       </section>
 
       {missing.length > 0 ? (
-        <p className="notice">
+        <p className="notice" role="status">
           Still needed before anyone can read you:{" "}
           {missing
             .map((m) =>
@@ -864,9 +864,9 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
         </p>
       ) : null}
 
-      {error ? <p className="notice notice-bad">{error}</p> : null}
-      {saved && missing.length === 0 ? <p className="notice">Saved. You are readable.</p> : null}
-      {saved && missing.length > 0 ? <p className="notice">Saved.</p> : null}
+      {error ? <p className="notice notice-bad" role="status">{error}</p> : null}
+      {saved && missing.length === 0 ? <p className="notice" role="status">Saved. You are readable.</p> : null}
+      {saved && missing.length > 0 ? <p className="notice" role="status">Saved.</p> : null}
 
       <button className="button" type="submit" disabled={busy}>
         {busy ? "Saving…" : "Save"}

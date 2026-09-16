@@ -82,7 +82,7 @@ export function Questions() {
     await load();
   }
 
-  if (!next) return <p className="notice">Looking…</p>;
+  if (!next) return <p className="notice" role="status">Looking…</p>;
 
   const insisted = mine.filter((a) => a.isNonNegotiable);
   const slotsLeft = next.maxNonNegotiable - next.nonNegotiablesUsed;
@@ -120,7 +120,7 @@ export function Questions() {
         </section>
       ) : null}
 
-      {error ? <p className="notice notice-bad">{error}</p> : null}
+      {error ? <p className="notice notice-bad" role="status">{error}</p> : null}
 
       {mine.length > 0 ? (
         <section className="stack" style={{ gap: 18 }}>

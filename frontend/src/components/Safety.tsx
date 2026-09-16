@@ -77,7 +77,7 @@ export function Safety({
     }
   }
 
-  if (reported) return <p className="notice">Reported. Nothing is shown to them.</p>;
+  if (reported) return <p className="notice" role="status">Reported. Nothing is shown to them.</p>;
 
   return (
     <div className="stack" style={{ gap: 12 }}>
@@ -152,7 +152,7 @@ export function Safety({
         </form>
       ) : null}
 
-      {error ? <p className="notice notice-bad">{error}</p> : null}
+      {error ? <p className="notice notice-bad" role="status">{error}</p> : null}
     </div>
   );
 }
