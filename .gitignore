@@ -11,3 +11,15 @@ coverage
 *.png
 !design/**/*.png
 .models
+
+# Not published. Specs, threat model, deploy runbook, backlog and research
+# are how this was built; they name the host, the tunnel and the account,
+# and they are of no use to someone reading the code.
+Internal Docs/
+deploy/
+design/
+.claude/
+.remember/
+# The agent constitution. Stays at the root so Claude Code still reads it,
+# stays out of the repository because it describes the machine.
+CLAUDE.md
