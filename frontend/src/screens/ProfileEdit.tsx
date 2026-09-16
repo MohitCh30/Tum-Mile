@@ -684,8 +684,8 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
             />
           </div>
           <span className="meta">
-            This works both ways. Someone outside these ages is not shown to you — and you are
-            not shown to them, so they cannot write to you either.
+            This works both ways. Someone outside these ages is not shown to you, and you are not
+            shown to them, so they cannot write to you either.
           </span>
         </div>
 
@@ -711,7 +711,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
                 <p className="prose" style={{ margin: 0 }}>
                   Optional. Your position is rounded to an area about 5 km across before it is
                   saved, and the exact point is never kept. Without it, distance does not apply to
-                  you at all — you are hidden from nobody by it and nobody is hidden from you.
+                  you at all: you are hidden from nobody by it, and nobody is hidden from you.
                 </p>
                 <button
                   type="button"
@@ -759,7 +759,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
             {privacy.showDistance ? "People see a rough distance" : "Hidden"}
           </button>
           <span className="meta">
-            A band — "about 5 km away" — never a number and never a place. Hiding it does not
+            A band, "about 5 km away", never a number and never a place. Hiding it does not
             change who you are shown: that is the setting above.
           </span>
         </div>

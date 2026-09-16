@@ -94,7 +94,7 @@ export function Safety({
           {children}
           <p className="prose">
             If something was wrong rather than merely not for you, report it. What they wrote is
-            kept as evidence at that moment, and not afterwards — so report before you block.
+            kept as evidence at that moment, and not afterwards, so report before you block.
           </p>
           <div className="row">
             <button className="button button-quiet grow" onClick={() => setOpen("report")}>

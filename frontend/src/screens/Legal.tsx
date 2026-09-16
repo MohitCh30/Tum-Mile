@@ -86,7 +86,7 @@ export function Privacy() {
           written down in the open source rather than tuned quietly.
         </p>
         <p className="prose">
-          There was a step that did read it — the words on your page turned into numbers by a model
+          There was a step that did read it: the words on your page turned into numbers by a model
           running on this same computer, so that two people who write alike surface to each other.
           It is switched off. The model needs more memory than this machine has left over, and
           buying a larger one to reorder a queue this short would be a strange thing to spend money

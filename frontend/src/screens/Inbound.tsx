@@ -226,7 +226,7 @@ function SentLikes() {
   return (
     <div className="stack" style={{ gap: 24 }}>
       <p className="meta">
-        whether these have been read is not something this app will tell you — taking one back
+        whether these have been read is not something this app will tell you; taking one back
         removes your words, but the day's six are still spent
       </p>
       {sent.map((like) => (

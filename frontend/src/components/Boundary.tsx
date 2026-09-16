@@ -23,7 +23,7 @@ export class Boundary extends Component<{ children: ReactNode }, { failed: boole
       <div className="stack" style={{ gap: 16, padding: 24, maxWidth: 460, margin: "0 auto" }}>
         <div className="wordmark">Tum Mile</div>
         <p className="prose">
-          Something on this screen broke. Nothing you wrote is lost — it is on the server, not in
+          Something on this screen broke. Nothing you wrote is lost. It is on the server, not in
           this page.
         </p>
         <button className="button" onClick={() => window.location.assign("/")}>

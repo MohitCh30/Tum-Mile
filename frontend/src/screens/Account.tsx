@@ -151,8 +151,8 @@ export function Account({ onGone }: { onGone: () => void }) {
           <h2 className="label">the address you sign in with</h2>
           <p className="prose">
             Currently {me.email}. Moving the account sends a code to the new address and a warning
-            to this one. Nothing changes until the code comes back — and when it does, everyone
-            signed in is signed out, including you, here.
+            to this one. Nothing changes until the code comes back. When it does, everyone signed in
+            is signed out, including you, here.
           </p>
           {askedCode ? (
             <div className="stack" style={{ gap: 10 }}>
@@ -225,7 +225,7 @@ export function Account({ onGone }: { onGone: () => void }) {
             onClick={togglePause}
             style={{ alignSelf: "flex-start" }}
           >
-            {paused ? "Away — nobody can see you" : "Here, and readable"}
+            {paused ? "Away, and nobody can see you" : "Here, and readable"}
           </button>
         </section>
       ) : null}
