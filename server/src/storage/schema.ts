@@ -133,6 +133,9 @@ export const profiles = pgTable(
     diet: text("diet"), // veg | non_veg | eggetarian | jain | vegan
     languages: jsonb("languages").$type<string[]>().notNull().default([]),
     religion: text("religion"), // null === "not stated", which is a real answer
+    drinking: text("drinking"), // none | social | regular
+    smoking: text("smoking"), // none | social | regular
+    sleepRhythm: text("sleep_rhythm"), // early_riser | night_owl | depends
 
     preferences: jsonb("preferences")
       .$type<{
@@ -207,6 +210,12 @@ export const profiles = pgTable(
     check(
       "diet_valid",
       sql`${t.diet} in ('veg', 'non_veg', 'eggetarian', 'jain', 'vegan')`
+    ),
+    check("drinking_valid", sql`${t.drinking} in ('none', 'social', 'regular')`),
+    check("smoking_valid", sql`${t.smoking} in ('none', 'social', 'regular')`),
+    check(
+      "sleep_rhythm_valid",
+      sql`${t.sleepRhythm} in ('early_riser', 'night_owl', 'depends')`
     ),
     check(
       "moderation_status_valid",

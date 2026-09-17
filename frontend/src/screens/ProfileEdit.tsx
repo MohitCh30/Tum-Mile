@@ -58,6 +58,24 @@ const DIETS = [
   ["vegan", "Vegan"],
 ] as const;
 
+const DRINKING = [
+  ["none", "Doesn't drink"],
+  ["social", "Drinks socially"],
+  ["regular", "Drinks regularly"],
+] as const;
+
+const SMOKING = [
+  ["none", "Doesn't smoke"],
+  ["social", "Smokes socially"],
+  ["regular", "Smokes regularly"],
+] as const;
+
+const SLEEP_RHYTHMS = [
+  ["early_riser", "Early riser"],
+  ["night_owl", "Night owl"],
+  ["depends", "Depends on the day"],
+] as const;
+
 /**
  * A list rather than a text box, so that the same answer is the same
  * value. Saying nothing is the default and stays a real answer — there is
@@ -97,6 +115,9 @@ type Draft = {
   diet: string;
   religion: string;
   wantsKids: string;
+  drinking: string;
+  smoking: string;
+  sleepRhythm: string;
   ageMin: string;
   ageMax: string;
 };
@@ -120,6 +141,9 @@ const EMPTY: Draft = {
   diet: "",
   religion: "",
   wantsKids: "",
+  drinking: "",
+  smoking: "",
+  sleepRhythm: "",
   // The same defaults the column carries, so an unsaved page and a stored
   // one say the same thing.
   ageMin: "18",
@@ -264,6 +288,9 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
           diet: p.diet ?? "",
           religion: p.religion ?? "",
           wantsKids: p.wantsKids ?? "",
+          drinking: p.drinking ?? "",
+          smoking: p.smoking ?? "",
+          sleepRhythm: p.sleepRhythm ?? "",
           ageMin: String(p.preferences?.ageMin ?? 18),
           ageMax: String(p.preferences?.ageMax ?? 45),
         });
@@ -398,9 +425,21 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setSaved(false);
+    // The two fields discovery cannot work without, and the only two on
+    // this page with no default the server will accept. Catching it here
+    // means the person sees which field is wrong, instead of the generic
+    // "not valid" a rejected write answers with.
+    if (!draft.gender) {
+      setError("Choose \"you are\" before saving.");
+      return;
+    }
+    if (draft.seeking.length === 0) {
+      setError("Choose at least one \"you would like to meet\" before saving.");
+      return;
+    }
     setBusy(true);
     setError(null);
-    setSaved(false);
     try {
       const res = await saveProfile({
         displayName: draft.displayName,
@@ -423,6 +462,9 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
         diet: draft.diet || null,
         religion: draft.religion || null,
         wantsKids: draft.wantsKids || null,
+        drinking: draft.drinking || null,
+        smoking: draft.smoking || null,
+        sleepRhythm: draft.sleepRhythm || null,
         preferences: { ...prefs, ...ageRange(draft, prefs) },
         privacy,
       });
@@ -614,7 +656,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
         </p>
 
         <div className="stack" style={{ gap: 6 }}>
-          <span className="meta">You are</span>
+          <span className="meta">You are (required)</span>
           <div className="row" style={{ flexWrap: "wrap" }}>
             {GENDERS.map(([value, label]) => (
               <button
@@ -631,7 +673,7 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
         </div>
 
         <div className="stack" style={{ gap: 6 }}>
-          <span className="meta">You would like to meet</span>
+          <span className="meta">You would like to meet (required)</span>
           <div className="row" style={{ flexWrap: "wrap" }}>
             {GENDERS.map(([value, label]) => (
               <button
@@ -822,6 +864,57 @@ export function ProfileEdit({ onSaved }: { onSaved?: () => void }) {
                 className={`chip${draft.diet === value ? " chip-on" : ""}`}
                 onClick={() => set("diet", draft.diet === value ? "" : value)}
                 aria-pressed={draft.diet === value}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="meta">Drinking</span>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            {DRINKING.map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={`chip${draft.drinking === value ? " chip-on" : ""}`}
+                onClick={() => set("drinking", draft.drinking === value ? "" : value)}
+                aria-pressed={draft.drinking === value}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="meta">Smoking</span>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            {SMOKING.map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={`chip${draft.smoking === value ? " chip-on" : ""}`}
+                onClick={() => set("smoking", draft.smoking === value ? "" : value)}
+                aria-pressed={draft.smoking === value}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="meta">Sleep rhythm</span>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            {SLEEP_RHYTHMS.map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={`chip${draft.sleepRhythm === value ? " chip-on" : ""}`}
+                onClick={() => set("sleepRhythm", draft.sleepRhythm === value ? "" : value)}
+                aria-pressed={draft.sleepRhythm === value}
               >
                 {label}
               </button>

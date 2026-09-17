@@ -126,6 +126,9 @@ export interface OwnProfile {
   diet: string | null;
   religion: string | null;
   wantsKids: string | null;
+  drinking: string | null;
+  smoking: string | null;
+  sleepRhythm: string | null;
   preferences: {
     ageMin: number;
     ageMax: number;
@@ -160,6 +163,9 @@ export interface PublicProfile {
   diet: string | null;
   languages: string[];
   religion: string | null;
+  drinking: string | null;
+  smoking: string | null;
+  sleepRhythm: string | null;
   distance: string | null;
 }
 

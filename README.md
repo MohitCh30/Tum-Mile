@@ -175,7 +175,7 @@ a design direction. The code is an attempt at those documents, and where the two
 disagree the document wins. Those specs are not in this repository, because they
 name the host and the tunnel and are of little use to someone reading the code.
 
-**51 commits, 8 to 16 September 2026.**
+**55 commits, 8 to 17 September 2026.**
 
 | Day | Commits | |
 |---|---|---|
@@ -187,10 +187,11 @@ name the host and the tunnel and are of little use to someone reading the code.
 | Sep 13 | 8 | embeddings, compatibility, design pass |
 | Sep 14 | 15 | the non-destructive exits, after an outsider went looking |
 | Sep 15 | 2 | off the laptop, onto a machine that stays on |
-| Sep 16 | 5 | the crash, link previews, the privacy page, screen readers |
+| Sep 16 | 7 | the crash, link previews, the privacy page, screen readers, a leaked password scrubbed |
+| Sep 17 | 2 | three more stated facts, a prompt, a guard against a recurring typo |
 
-Roughly 6,900 lines of server source across 40 files, 5,200 lines of frontend,
-5,000 lines of tests across 25 files, 10 migrations, 61 endpoints.
+Roughly 6,900 lines of server source across 40 files, 4,700 lines of frontend,
+5,000 lines of tests across 24 files, 11 migrations, 61 endpoints.
 
 ### What running the code found that reading it did not
 

@@ -105,6 +105,9 @@ export interface PublicProfile {
   diet: string | null;
   languages: string[];
   religion: string | null;
+  drinking: string | null;
+  smoking: string | null;
+  sleepRhythm: string | null;
   distance: string | null;
 }
 
@@ -136,6 +139,9 @@ export function toPublicProfile(
     diet: profile.diet,
     languages: profile.languages,
     religion: profile.religion,
+    drinking: profile.drinking,
+    smoking: profile.smoking,
+    sleepRhythm: profile.sleepRhythm,
     distance,
   };
 }

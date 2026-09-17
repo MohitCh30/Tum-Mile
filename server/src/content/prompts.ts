@@ -66,6 +66,11 @@ export const PROMPTS: readonly Prompt[] = [
     body: "A quote you keep coming back to, and why it stuck",
     group: "objects",
   },
+  {
+    id: "political-pushback",
+    body: "A political opinion you hold that most people you know don't",
+    group: "objects",
+  },
 
   // Scenes. The anti-highlight-reel: everyone else's profile is a holiday.
   { id: "tuesday", body: "Describe your Tuesday", group: "scenes" },

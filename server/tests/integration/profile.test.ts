@@ -296,7 +296,16 @@ describe("the stated facts", () => {
     const actor = await makeActor(app, "believer@test.local");
 
     expect(
-      (await save(actor.cookie, { religion: "sikh", diet: "veg", wantsKids: "unsure" })).statusCode
+      (
+        await save(actor.cookie, {
+          religion: "sikh",
+          diet: "veg",
+          wantsKids: "unsure",
+          drinking: "social",
+          smoking: "none",
+          sleepRhythm: "night_owl",
+        })
+      ).statusCode
     ).toBe(200);
 
     resetRateLimits();
@@ -309,6 +318,9 @@ describe("the stated facts", () => {
     expect(profile.religion).toBe("sikh");
     expect(profile.diet).toBe("veg");
     expect(profile.wantsKids).toBe("unsure");
+    expect(profile.drinking).toBe("social");
+    expect(profile.smoking).toBe("none");
+    expect(profile.sleepRhythm).toBe("night_owl");
   });
 
   it("counts none of them toward a finished profile", async () => {
@@ -320,6 +332,9 @@ describe("the stated facts", () => {
       religion: null,
       diet: null,
       wantsKids: null,
+      drinking: null,
+      smoking: null,
+      sleepRhythm: null,
       status: null,
       interests: [],
       languages: [],
@@ -365,6 +380,9 @@ describe("the stated facts", () => {
     const actor = await makeActor(app, "freetext@test.local");
     expect((await save(actor.cookie, { religion: "whatever I feel like" })).statusCode).toBe(400);
     expect((await save(actor.cookie, { diet: "pescatarian" })).statusCode).toBe(400);
+    expect((await save(actor.cookie, { drinking: "heavily" })).statusCode).toBe(400);
+    expect((await save(actor.cookie, { smoking: "occasionally" })).statusCode).toBe(400);
+    expect((await save(actor.cookie, { sleepRhythm: "vampire" })).statusCode).toBe(400);
   });
 
   it("treats saying nothing as a real answer rather than a gap", async () => {

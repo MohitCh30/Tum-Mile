@@ -62,6 +62,10 @@ const RELIGIONS = [
   "other",
 ] as const;
 
+/** Shared by drinking and smoking: how often, not how much. */
+const HABIT_LEVELS = ["none", "social", "regular"] as const;
+const SLEEP_RHYTHMS = ["early_riser", "night_owl", "depends"] as const;
+
 /**
  * The complete set of fields a person may write on their own profile.
  *
@@ -124,6 +128,9 @@ const profileWriteSchema = z
     // same thing differently. null means "not stated", which is a real
     // answer and not a gap.
     religion: z.enum(RELIGIONS).nullable(),
+    drinking: z.enum(HABIT_LEVELS).nullable(),
+    smoking: z.enum(HABIT_LEVELS).nullable(),
+    sleepRhythm: z.enum(SLEEP_RHYTHMS).nullable(),
 
     preferences: z.object({
       ageMin: z.number().int().min(MINIMUM_AGE).max(120),
@@ -254,6 +261,9 @@ export const profileRoutes: FastifyPluginAsync = async (app) => {
       set("diet", "diet");
       set("languages", "languages");
       set("religion", "religion");
+      set("drinking", "drinking");
+      set("smoking", "smoking");
+      set("sleepRhythm", "sleepRhythm");
       set("preferences", "preferences");
       set("privacy", "privacy");
 

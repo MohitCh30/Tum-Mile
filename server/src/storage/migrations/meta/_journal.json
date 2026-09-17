@@ -71,6 +71,13 @@
       "when": 1789400000000,
       "tag": "0009_wandering_mole",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789587709901,
+      "tag": "0010_certain_the_call",
+      "breakpoints": true
     }
   ]
 }

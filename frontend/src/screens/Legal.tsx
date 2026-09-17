@@ -9,7 +9,7 @@ import { Link } from "react-router-dom";
  * account by one person running an experiment, not legal advice.
  */
 
-const UPDATED = "11 September 2026";
+const UPDATED = "17 September 2026";
 const CONTACT = "hello@mohitchdev.me";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -73,7 +73,9 @@ export function Privacy() {
         <p className="prose">
           Photographs, a phone number, your exact location, your employer or college, your caste,
           income or height. There are no read receipts, no typing indicator and no "last seen". No
-          advertising, no trackers, no analytics.
+          advertising, and nothing we add ourselves to watch you browse. Cloudflare, which sits in
+          front of every request before it reaches us, runs its own bot check on every page (see
+          "other services involved" below for what that is and sees).
         </p>
       </Section>
 
@@ -109,9 +111,14 @@ export function Privacy() {
 
       <Section title="other services involved">
         <p className="prose">
-          Three, each doing one job. Cloudflare carries the connection to this site and runs the
-          check on the sign-in page that keeps scripts out; it sees your IP address. Brevo delivers
-          our emails; it sees your address and the email itself. Google Fonts supplies the
+          Three, each doing one job. Cloudflare carries the connection to this site; it sees your
+          IP address. It also runs two checks of its own on every visit, not only on sign-in: a
+          challenge on the sign-in page itself that keeps scripts out, and a background script,
+          <code>jsd/main.js</code>, that looks at how your browser behaves to tell a person from a
+          bot. Both are Cloudflare's, run at the edge before your request reaches this server, and
+          neither is something we asked for beyond turning the service on; we do not see whatever
+          they decide, and there is no analytics dashboard of our own reading either one. Brevo
+          delivers our emails; it sees your address and the email itself. Google Fonts supplies the
           typefaces; your browser fetches them from Google, which sees your IP address.
         </p>
       </Section>

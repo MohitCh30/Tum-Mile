@@ -37,6 +37,24 @@ const RELIGION_LABEL: Record<string, string> = {
   other: "Something else",
 };
 
+const DRINKING_LABEL: Record<string, string> = {
+  none: "Doesn't drink",
+  social: "Drinks socially",
+  regular: "Drinks regularly",
+};
+
+const SMOKING_LABEL: Record<string, string> = {
+  none: "Doesn't smoke",
+  social: "Smokes socially",
+  regular: "Smokes regularly",
+};
+
+const SLEEP_LABEL: Record<string, string> = {
+  early_riser: "Early riser",
+  night_owl: "Night owl",
+  depends: "Depends on the day",
+};
+
 const STATUS_LABEL: Record<string, string> = {
   single: "Single",
   newly_single: "Newly single",
@@ -100,6 +118,9 @@ export function ProfileRead({
             : null,
     profile.languages.length > 0 ? profile.languages.join(", ") : null,
     profile.diet ? (DIET_LABEL[profile.diet] ?? profile.diet) : null,
+    profile.drinking ? (DRINKING_LABEL[profile.drinking] ?? profile.drinking) : null,
+    profile.smoking ? (SMOKING_LABEL[profile.smoking] ?? profile.smoking) : null,
+    profile.sleepRhythm ? (SLEEP_LABEL[profile.sleepRhythm] ?? profile.sleepRhythm) : null,
     profile.religion ? (RELIGION_LABEL[profile.religion] ?? profile.religion) : null,
   ].filter((f): f is string => Boolean(f));
 
