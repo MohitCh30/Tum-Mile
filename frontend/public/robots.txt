@@ -1,0 +1,15 @@
+# The app has no server-side rendering: every path below the ones listed
+# here returns the same empty SPA shell to a crawler with no session
+# cookie (see server/src/middleware/error-handler.ts), so there is nothing
+# for a search index to gain from them. Cloudflare AI Crawl Control also
+# gates bot access at the edge and prepends its own rules to this file
+# (Bot Preference Sync) - this is the path-level layer underneath that.
+User-agent: *
+Allow: /$
+Allow: /privacy
+Allow: /terms
+Disallow: /verify
+Disallow: /discovery
+Disallow: /profile/
+Disallow: /matches
+Disallow: /api/
