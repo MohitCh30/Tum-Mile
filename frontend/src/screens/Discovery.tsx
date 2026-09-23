@@ -20,8 +20,29 @@ import { Safety } from "../components/Safety";
  * the writing. That is the whole interaction design: the cost of a like is
  * having read.
  */
+const INTRO_KEY = "tummile:seen-discovery-intro";
+
 export function Discovery() {
   const [state, setState] = useState<DiscoveryResponse | null>(null);
+  // Shown once, on this device, before the first person appears. Not a
+  // notification and it never comes back on its own — a person is entitled
+  // to be told the rules of a room before they act in it, once.
+  const [showIntro, setShowIntro] = useState(() => {
+    try {
+      return localStorage.getItem(INTRO_KEY) !== "1";
+    } catch {
+      return true;
+    }
+  });
+  const dismissIntro = useCallback(() => {
+    setShowIntro(false);
+    try {
+      localStorage.setItem(INTRO_KEY, "1");
+    } catch {
+      // Private window or blocked storage: it shows again next visit,
+      // which costs nothing.
+    }
+  }, []);
   const [prompts, setPrompts] = useState<Map<string, string>>(new Map());
   const [quoted, setQuoted] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -194,6 +215,20 @@ export function Discovery() {
             that was a mistake
           </button>
         </p>
+      ) : null}
+
+      {showIntro ? (
+        <div className="card stack" style={{ gap: 12 }}>
+          <p className="prose">
+            A like has to answer something they wrote — pick a line, then say what you thought of
+            it. Six a day, and nine people a day can write to you: reading is free, deciding is
+            not. Nothing here notifies you. Come back when you want to, not when something pulls
+            you back.
+          </p>
+          <button className="button button-quiet" onClick={dismissIntro}>
+            Understood
+          </button>
+        </div>
       ) : null}
 
       <ProfileRead
