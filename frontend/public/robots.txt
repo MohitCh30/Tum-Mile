@@ -13,3 +13,5 @@ Disallow: /discovery
 Disallow: /profile/
 Disallow: /matches
 Disallow: /api/
+
+Sitemap: https://tummile.mohitchdev.me/sitemap.xml
